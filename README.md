@@ -6,10 +6,22 @@ SaveSmart compares a whole shopping cart across India's quick-commerce apps (Bli
 
 > "I put my grocery list into SaveSmart, and it tells me the cheapest way to buy everything."
 
-> **Prices are demo data.** No platform offers a public price API, and SaveSmart does not scrape or bypass any access controls. All prices come from the `DemoDataProvider` and are labelled **Demo prices** everywhere in the app. A licensed data provider can replace it without touching the rest of the system (see [Going live](#going-live)).
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Madhubabun/Save_Smart)
+
+## Where prices come from
+
+None of the apps offers a public price API, and SaveSmart never scrapes them or gets around their protections. Real prices come from two sources, layered:
+
+1. **A licensed price feed** (optional): a price-data provider plugs in through one small contract. See [docs/price-feed.md](docs/price-feed.md).
+2. **Community prices:** what SaveSmart users saw in the apps and shared, by city and pincode. A price is the median of recent reports nearby, each person counts once, typos are rejected, and reports expire after 3 days. Delivery, handling and other fees are shared the same way.
+
+The feed is used first and community prices fill its gaps. Every price in the app shows when it was last seen. Items nobody has priced yet are listed as "no recent price", never guessed, with a quick way to fill them in.
+
+Generated demo data (`PRICE_SOURCE=demo`) exists only for development and tests, and is labelled **Demo prices** wherever it appears.
 
 ## What you can do
 
+- **Fill in missing prices** in a few taps: open the app, type what you see, and everyone nearby gets it next time.
 - **Compare a whole cart** by searching, pasting a list ("Milk 2, Bread 1, Eggs 12") or adding items manually, and get the cheapest single app, the cheapest split and a recommended plan for your saving style.
 - **Smart swaps:** SaveSmart suggests a different pack size of the same product, or the same kind of product from another brand (basmati for basmati, toned milk for toned milk), in exactly the same amount. A swap is only shown when it lowers the **whole plan total**, fees and order splits included. One tap applies it and re-runs the comparison.
 - **Shop the plan:** each order has an "Open" button to continue on that app, a checklist to tick items off as you add them (remembered on the device), and **Share plan** to send the list to someone else.
@@ -26,7 +38,7 @@ npm install
 npm run dev          # API on :8787, web app on http://localhost:5173
 ```
 
-Open the app and tap **Try Demo**, or paste:
+Open the app and tap **Try a sample list**, or paste:
 
 ```
 Milk 2
@@ -37,7 +49,7 @@ Rice 5kg
 Biscuits 2
 ```
 
-In Bengaluru (Whitefield, 560066) the cheapest single app is BigBasket at ₹792; SaveSmart's split (BigBasket ₹473 + Zepto ₹279) costs ₹752, so you save ₹40.
+With a fresh install there are no prices yet: share a few from the "Fill in missing prices" screen, or run with `PRICE_SOURCE=demo` to explore with generated data (in Bengaluru, Whitefield 560066, the demo split costs ₹752 against ₹792 for the cheapest single app).
 
 Production build (the API also serves the web app):
 
@@ -52,10 +64,14 @@ Without `DATABASE_URL` the API uses an in-memory store (data resets on restart).
 
 ```bash
 export DATABASE_URL=postgres://user:pass@localhost:5432/savesmart
-npm run db:schema    # applies database/schema.sql (idempotent)
-npm run db:seed      # platforms, locations, catalog, matched listings, demo prices + 30-day history
-npm start
+npm start            # creates the tables and loads the product catalog on first start
 ```
+
+`npm run db:schema` and `npm run db:seed` do the same by hand; `npm run db:seed -- --demo` also adds demo listings and history for development.
+
+### Put it online (installable app link)
+
+Click **Deploy to Render** above (free tier): it creates the web app and a PostgreSQL database from `render.yaml`. Leave `PRICE_FEED_URL` and `PRICE_FEED_KEY` empty to start with community prices, or fill them in for your licensed feed. Open the URL Render gives you on your phone and choose **Add to Home Screen** / **Install app**. Free services sleep when idle, so the first open after a while takes a little longer.
 
 ## Tests
 
@@ -99,11 +115,11 @@ Parses sizes and units (kg/g/L/ml/pcs/dozen/multipacks), normalizes them to base
 
 `PlatformAdapter` is the only contract the app knows. `BlinkitAdapter`, `ZeptoAdapter`, `InstamartAdapter` and `BigBasketAdapter` each read a different raw record format (prices in rupees vs paise, different stock and size fields) from a `PlatformSource` and return the standardized listing: `productId, platform, productName, brand, variant, quantity, unit, price, mrp, discount, availability, deliveryFee, platformFee, handlingFee, productUrl, lastUpdated, location`.
 
-The `DemoDataProvider` covers **64 products**, 11 locations in 7 cities (with city-level price differences, area surge fees and platforms that don't deliver everywhere), out-of-stock and unlisted products, coupons, memberships and minimum order values.
+Real prices come from `FeedAdapter` (licensed feed, `platform-adapters/src/feed/`) layered over `CommunityAdapter` (shared reports, `backend/src/services/community.ts`). For development, the `DemoDataProvider` covers **64 products**, 11 locations in 7 cities (with city-level price differences, area surge fees and platforms that don't deliver everywhere), out-of-stock and unlisted products, coupons, memberships and minimum order values.
 
-### Going live
+### Connecting a price feed
 
-Implement `PlatformSource<TRaw>` against a licensed, permitted data source (official partner API or feed) and pass it to the existing adapter, or write a new adapter class. Nothing else changes: the optimization engine and UI only see `PlatformListing` and `FeeSchedule`. Never bypass authentication, CAPTCHAs or anti-bot systems.
+Set `PRICE_FEED_URL` and `PRICE_FEED_KEY` (see [docs/price-feed.md](docs/price-feed.md) for the contract). Nothing else changes: the optimization engine and UI only see `PlatformListing` and `FeeSchedule`. Never bypass authentication, CAPTCHAs or anti-bot systems.
 
 ## Project structure
 
@@ -137,6 +153,9 @@ All responses use `{ ok: true, data }` or `{ ok: false, error: { code, message }
 | GET/POST/PUT/DELETE | `/api/saved-carts` | Recurring carts |
 | GET/POST/DELETE | `/api/price-alerts` | Product and basket alerts (evaluated on read) |
 | GET | `/api/savings` | Savings dashboard, this month's spend and budget |
+| GET | `/api/prices?ids=` | Latest known prices and fee status for products in your area |
+| POST | `/api/prices/report` | Share a price (or "out of stock") you saw in an app |
+| POST | `/api/fees/report` | Share an app's fees from its bill |
 
 ## Security
 

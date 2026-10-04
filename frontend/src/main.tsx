@@ -1,6 +1,6 @@
 import { StrictMode, lazy } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter, HashRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import './index.css';
 import { CompareRunnerProvider } from './components/CompareRunner';
 import { Layout } from './components/Layout';
@@ -21,12 +21,9 @@ const Alerts = lazy(() => import('./pages/Alerts').then((m) => ({ default: m.Ale
 const CheckPrices = lazy(() => import('./pages/CheckPrices').then((m) => ({ default: m.CheckPrices })));
 const Settings = lazy(() => import('./pages/Settings').then((m) => ({ default: m.Settings })));
 
-// Static hosts (GitHub Pages, a single shared file) have no server-side routing, so they use #/ routes.
-const Router = import.meta.env.VITE_ROUTER === 'hash' ? HashRouter : BrowserRouter;
-
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <Router>
+    <BrowserRouter>
       <AppStateProvider>
         <CompareRunnerProvider>
           <Routes>
@@ -45,6 +42,6 @@ createRoot(document.getElementById('root')!).render(
           </Routes>
         </CompareRunnerProvider>
       </AppStateProvider>
-    </Router>
+    </BrowserRouter>
   </StrictMode>,
 );

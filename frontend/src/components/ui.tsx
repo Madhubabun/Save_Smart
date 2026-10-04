@@ -80,10 +80,9 @@ export function Badge({ tone = 'neutral', children, className }: { tone?: 'neutr
 
 /** Says where prices came from. Demo prices are always labelled; checked prices say so too. */
 export function SourceBadge({ source, className }: { source: DataSource; className?: string }) {
-  if (source === 'live') return null;
   return (
     <Badge tone={source === 'demo' ? 'accent' : 'brand'} className={className}>
-      <span aria-hidden>●</span> {source === 'demo' ? 'Demo prices' : 'Prices you checked'}
+      <span aria-hidden>●</span> {source === 'demo' ? 'Demo prices' : source === 'live' ? 'Live prices' : 'Shared by shoppers'}
     </Badge>
   );
 }

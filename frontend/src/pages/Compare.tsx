@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { PLATFORMS, PLATFORM_IDS, type CatalogProduct } from '@savesmart/shared';
+import { Link } from 'react-router-dom';
+import { useCompareRunner } from '../components/CompareRunner';
+import type { CatalogProduct } from '@savesmart/shared';
 import { LocationChip } from '../components/LocationPicker';
 import { PreferencePicker } from '../components/PreferencePicker';
-import { Badge, Button, Card, EmptyState, Notice, PlatformDot, SectionTitle, Sheet, Stepper, cx } from '../components/ui';
+import { Badge, Button, Card, EmptyState, Notice, SectionTitle, Sheet, Stepper, cx } from '../components/ui';
 import { api, ApiError } from '../lib/api';
 import { productLabel, productSize } from '../lib/format';
 import { DEMO_LIST, useApp, type CartLine } from '../state/AppState';
@@ -12,7 +13,7 @@ type Tab = 'search' | 'paste' | 'manual';
 
 export function Compare() {
   const app = useApp();
-  const navigate = useNavigate();
+  const { run, running } = useCompareRunner();
   const [tab, setTab] = useState<Tab>(app.cart.length ? 'search' : 'paste');
   const [message, setMessage] = useState<{ level: 'info' | 'warning'; title: string; message: string } | null>(null);
   const needsConfirm = app.cart.filter((l) => l.confidence === 'low').length;
@@ -20,10 +21,7 @@ export function Compare() {
   return (
     <div className={cx('mx-auto max-w-2xl space-y-6', app.cart.length > 0 && 'pb-28 md:pb-0')}>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-sm font-semibold text-brand">Step 1 of 2</p>
-          <h1 className="text-2xl font-extrabold tracking-tight">My Cart</h1>
-        </div>
+        <h1 className="text-2xl font-extrabold tracking-tight">My Cart</h1>
         <LocationChip />
       </div>
 
@@ -100,8 +98,8 @@ export function Compare() {
         <div className="fixed inset-x-0 bottom-16 z-30 border-t border-line bg-bg/95 px-4 py-3 backdrop-blur-md md:static md:border-0 md:bg-transparent md:p-0">
           <div className="mx-auto max-w-2xl">
             {needsConfirm > 0 && <p className="mb-2 text-center text-xs text-muted">{needsConfirm} item{needsConfirm > 1 ? 's use' : ' uses'} our best guess. Tap "Confirm" to check.</p>}
-            <Button size="lg" className="w-full text-[17px]" onClick={() => navigate('/check')}>
-              Next: check prices
+            <Button size="lg" className="w-full text-[17px]" onClick={() => run()} loading={running}>
+              Compare Prices
             </Button>
           </div>
         </div>

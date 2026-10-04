@@ -4,6 +4,10 @@ import type {
   CompareRequest,
   ComparisonResponse,
   ComparisonSummary,
+  FeeSchedule,
+  ItemOffer,
+  Location,
+  PlatformId,
   CreateCartRequest,
   CreateCartResponse,
   LocationOption,
@@ -18,7 +22,6 @@ import type {
 import { storage } from './storage';
 
 import { ApiError } from './apiError';
-import { localApi } from '../local/localApi';
 
 export { ApiError };
 
@@ -70,8 +73,7 @@ async function request<T>(method: string, path: string, body?: unknown, retried 
 const loc = (l?: { city?: string; area?: string; pincode?: string }) =>
   l ? `?${new URLSearchParams({ city: l.city ?? '', area: l.area ?? '', pincode: l.pincode ?? '' })}` : '';
 
-/** Talks to the SaveSmart server (used with a licensed price feed). */
-const serverApi = {
+export const api = {
   searchProducts: (q: string, signal?: AbortSignal) =>
     fetch(`/api/products/search?q=${encodeURIComponent(q)}&limit=8`, { signal })
       .then((r) => r.json() as Promise<ApiResponse<CatalogProduct[]>>)
@@ -96,11 +98,26 @@ const serverApi = {
     request<unknown>('POST', '/price-alerts', body),
   deleteAlert: (id: string) => request<unknown>('DELETE', `/price-alerts/${id}`),
   savings: () => request<SavingsSummary>('GET', '/savings'),
+  /** Current prices for products in the user's area, from the feed and the community. */
+  prices: (productIds: string[], l?: { city?: string; area?: string; pincode?: string }) =>
+    request<PriceLookup>('GET', `/prices${loc(l)}${l ? '&' : '?'}ids=${productIds.map(encodeURIComponent).join(',')}`),
+  reportPrice: (body: { productId: string; platform: PlatformId; available: boolean; price?: number; location?: Location }) =>
+    request<{ reported: true }>('POST', '/prices/report', body),
+  reportFees: (body: FeeReportInput & { platform: PlatformId; location?: Location }) => request<{ reported: true }>('POST', '/fees/report', body),
 };
 
-/**
- * Where prices come from. By default SaveSmart runs on the device with prices the user checked
- * ("onDevice"). Builds with VITE_PRICE_SOURCE=server use the server and its licensed price feed.
- */
-export const onDevice = import.meta.env.VITE_PRICE_SOURCE !== 'server';
-export const api: typeof serverApi = onDevice ? localApi : serverApi;
+export interface PriceLookup {
+  location: Location;
+  offers: Record<string, ItemOffer[]>;
+  fees: Record<PlatformId, { known: boolean; observedAt: string | null; fees: FeeSchedule | null }>;
+}
+
+export interface FeeReportInput {
+  deliveryFee: number;
+  freeDeliveryAbove: number | null;
+  handlingFee: number;
+  platformFee: number;
+  smallCartFee: number;
+  smallCartBelow: number;
+  minOrderValue: number;
+}

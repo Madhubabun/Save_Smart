@@ -26,7 +26,7 @@ export function Home() {
       replaceCart(lines);
       await run({ lines, savedCartId: null });
     } catch {
-      setError("Couldn't start the demo. Is the SaveSmart server running?");
+      setError("Couldn't reach SaveSmart. Check your connection and try again.");
     } finally {
       setLoading(false);
     }
@@ -53,7 +53,7 @@ export function Home() {
               {cart.length > 0 && <span className="rounded-full bg-white/25 px-2 text-sm">{cart.length}</span>}
             </Button>
             <Button size="lg" variant="secondary" onClick={tryDemo} loading={loading}>
-              Try Demo
+              Try a sample list
             </Button>
           </div>
           {error && <p className="mt-3 text-sm text-danger">{error}</p>}
@@ -77,7 +77,7 @@ export function Home() {
         <div className="mt-8 grid gap-4 md:grid-cols-3">
           {[
             { icon: '📝', title: 'Add your list', text: 'Paste "Milk 2, Bread 1, Eggs 12" or search. SaveSmart understands sizes and quantities.' },
-            { icon: '⚡', title: 'We compare every app', text: 'Matching products across Blinkit, Zepto, Instamart and BigBasket, including fees and coupons.' },
+            { icon: '⚡', title: 'We compare every app', text: 'Prices from a licensed feed and from shoppers nearby, matched across Blinkit, Zepto, Instamart and BigBasket, fees included.' },
             { icon: '🏆', title: 'Get the lowest total', text: 'One app or a smart split: you see exactly what to buy where, and how much you save.' },
           ].map((s, i) => (
             <Card key={s.title} className="p-5 animate-rise" >

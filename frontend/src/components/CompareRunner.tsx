@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PLATFORMS, PLATFORM_IDS, type ComparisonResponse, type PlatformId, type ShoppingPreference } from '@savesmart/shared';
-import { api, ApiError, onDevice } from '../lib/api';
+import { api, ApiError } from '../lib/api';
 import { useApp, type CartLine } from '../state/AppState';
 import { LogoMark } from './Logo';
 import { Button, PlatformDot, Spinner, cx } from './ui';
@@ -20,10 +20,8 @@ interface Runner {
 
 const Ctx = createContext<Runner | null>(null);
 
-const STEPS = onDevice
-  ? ['Reading the prices you checked', 'Matching pack sizes', 'Adding each app\'s fees', 'Optimizing your cart']
-  : ['Searching platforms', 'Matching products', 'Calculating discounts', 'Calculating delivery fees', 'Optimizing your cart'];
-const STEP_MS = onDevice ? 170 : 280;
+const STEPS = ['Searching platforms', 'Matching products', 'Calculating discounts', 'Calculating delivery fees', 'Optimizing your cart'];
+const STEP_MS = 280;
 
 /** Runs comparisons and shows the progress overlay. Fast: it never waits longer than the request needs, beyond a short readable sequence. */
 export function CompareRunnerProvider({ children }: { children: ReactNode }) {
@@ -113,7 +111,6 @@ function ProgressOverlay({ step, platformsDone, failed, error, onClose }: { step
         <ol className="space-y-3" aria-live="polite">
           <li>
             <StepRow label={STEPS[0]} state={step > 0 ? 'done' : 'active'} />
-            {!onDevice && (
             <ul className="ml-9 mt-2 grid grid-cols-2 gap-2">
               {PLATFORM_IDS.map((id, i) => {
                 const done = i < platformsDone;
@@ -127,7 +124,6 @@ function ProgressOverlay({ step, platformsDone, failed, error, onClose }: { step
                 );
               })}
             </ul>
-            )}
           </li>
           {STEPS.slice(1).map((label, i) => (
             <li key={label}>

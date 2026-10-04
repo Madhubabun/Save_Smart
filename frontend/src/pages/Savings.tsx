@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { PLATFORMS, type SavingsSummary } from '@savesmart/shared';
-import { Badge, Button, Card, EmptyState, LinkButton, PlatformDot, SectionTitle, Skeleton } from '../components/ui';
+import { Card, EmptyState, LinkButton, PlatformDot, SectionTitle, Skeleton } from '../components/ui';
 import { BudgetCard } from '../components/BudgetCard';
 import { api } from '../lib/api';
 import { platformName, rupees } from '../lib/format';

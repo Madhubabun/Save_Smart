@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { PLATFORMS, type ComparisonResponse, type Plan, type SavingsSummary, type SmartSwap } from '@savesmart/shared';
 import { api } from '../lib/api';
-import { platformName, productLabel, productSize, rupees } from '../lib/format';
+import { productLabel, productSize, rupees } from '../lib/format';
 import { storage } from '../lib/storage';
 import { useApp, type CartLine } from '../state/AppState';
 import { useCompareRunner } from './CompareRunner';

@@ -91,8 +91,8 @@ export interface PlatformListing {
   reports?: number;
 }
 
-/** demo: generated sample data · live: a licensed price feed · community: prices SaveSmart users saw in the apps · user: checked on this device. */
-export type DataSource = 'demo' | 'live' | 'community' | 'user';
+/** demo: generated sample data · live: a licensed price feed · community: prices SaveSmart users saw in the apps. */
+export type DataSource = 'demo' | 'live' | 'community';
 
 export interface Coupon {
   code: string;

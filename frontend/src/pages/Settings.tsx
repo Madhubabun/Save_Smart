@@ -110,9 +110,10 @@ export function Settings() {
         <Card className="space-y-3 p-5 text-sm text-muted">
           <Logo size={28} showTagline />
           <p>
-            Prices in this version come from SaveSmart's <strong className="text-ink">demo data provider</strong>. They are realistic but not live, and are always labelled
-            as demo prices. A licensed data provider can replace it without changing the app.
+            Prices come from a <strong className="text-ink">licensed price feed</strong> where one is connected, and from <strong className="text-ink">prices shoppers saw in the apps</strong> and
+            shared. Shared prices use the middle value of recent reports nearby, count each person once and expire after 3 days. Every price shows when it was last seen.
           </p>
+          <p>SaveSmart never scrapes the apps or gets around their protections.</p>
           <p>SaveSmart never places orders. You continue your purchase on the platform you choose.</p>
           <p>Sponsored content, when it arrives, will always be labelled "Sponsored" and can never change which option is cheapest.</p>
         </Card>
