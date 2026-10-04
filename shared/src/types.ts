@@ -34,7 +34,8 @@ export type ProductCategory =
   | 'Beverages'
   | 'Household'
   | 'Personal Care'
-  | 'Breakfast';
+  | 'Breakfast'
+  | 'Other';
 
 /** A canonical product in SaveSmart's own catalog. Platforms list it under their own names. */
 export interface CatalogProduct {
@@ -86,9 +87,12 @@ export interface PlatformListing {
   location: Location;
   /** Where the number came from. Demo prices must always be labelled as such. */
   dataSource: DataSource;
+  /** Community prices: how many people's reports the price is based on. */
+  reports?: number;
 }
 
-export type DataSource = 'demo' | 'live';
+/** demo: generated sample data · live: a licensed price feed · community: prices SaveSmart users saw in the apps. */
+export type DataSource = 'demo' | 'live' | 'community';
 
 export interface Coupon {
   code: string;
@@ -128,6 +132,9 @@ export interface FeeSchedule {
   minOrderValue: number;
   coupons: Coupon[];
   membership?: Membership;
+  /** Where the fees came from; "unknown" means nobody has reported them yet, so totals leave them out. */
+  feesSource?: 'feed' | 'community' | 'demo' | 'unknown';
+  feesObservedAt?: string;
 }
 
 export interface PlatformInfo {

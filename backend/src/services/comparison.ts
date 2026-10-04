@@ -5,6 +5,7 @@ import {
   unitPriceLabel,
   type CatalogProduct,
   type ComparedItem,
+  type DataSource,
   type ComparisonResponse,
   type FeeSchedule,
   type ItemOffer,
@@ -77,6 +78,8 @@ export function toOffer(platform: PlatformId, product: CatalogProduct, match: Li
     lastUpdated: l.lastUpdated,
     productUrl: l.productUrl,
     matchScore: match.score,
+    source: l.dataSource,
+    reports: l.reports,
   };
 }
 
@@ -92,6 +95,10 @@ export class ComparisonService {
     /** Catalog used to look for Smart Swaps. Empty disables them. */
     private readonly catalog: CatalogProduct[] = [],
   ) {}
+
+  get dataSource(): DataSource {
+    return new Set(this.adapters.map((a) => a.dataSource)).size === 1 ? this.adapters[0].dataSource : 'demo';
+  }
 
   get platformIds(): PlatformId[] {
     return this.adapters.map((a) => a.id);
@@ -216,6 +223,15 @@ export class ComparisonService {
           : 'No platform could be reached. Please try again in a moment.',
       });
     }
+    const unknownFees = okQuotes.filter((q) => q.fees?.feesSource === 'unknown' && result.recommended?.platforms.includes(q.platform));
+    if (unknownFees.length) {
+      const names = unknownFees.map((q) => PLATFORMS[q.platform].shortName).join(' and ');
+      notices.push({
+        level: 'info',
+        title: `${names} fees not known yet`,
+        message: `Nobody has shared ${names}'s delivery and handling fees for ${input.location.city} yet, so this total leaves them out. Add them from your next bill to make it exact.`,
+      });
+    }
     for (const q of quotes.filter((x) => x.status === 'not_serviceable')) {
       notices.push({ level: 'info', title: `${PLATFORMS[q.platform].shortName} isn't available here`, message: q.message ?? '' });
     }
@@ -243,7 +259,7 @@ export class ComparisonService {
 
     return {
       location: input.location,
-      dataSource: this.adapters.every((a) => a.dataSource === 'live') ? 'live' : 'demo',
+      dataSource: this.dataSource,
       items,
       platforms,
       result,

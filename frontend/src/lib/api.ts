@@ -4,6 +4,10 @@ import type {
   CompareRequest,
   ComparisonResponse,
   ComparisonSummary,
+  FeeSchedule,
+  ItemOffer,
+  Location,
+  PlatformId,
   CreateCartRequest,
   CreateCartResponse,
   LocationOption,
@@ -17,15 +21,9 @@ import type {
 } from '@savesmart/shared';
 import { storage } from './storage';
 
-export class ApiError extends Error {
-  constructor(
-    readonly status: number,
-    readonly code: string,
-    message: string,
-  ) {
-    super(message);
-  }
-}
+import { ApiError } from './apiError';
+
+export { ApiError };
 
 const TOKEN_KEY = 'ss.token';
 let sessionPromise: Promise<string> | null = null;
@@ -100,6 +98,26 @@ export const api = {
     request<unknown>('POST', '/price-alerts', body),
   deleteAlert: (id: string) => request<unknown>('DELETE', `/price-alerts/${id}`),
   savings: () => request<SavingsSummary>('GET', '/savings'),
-  addSampleSavings: () => request<unknown>('POST', '/savings/sample'),
-  clearSampleSavings: () => request<unknown>('DELETE', '/savings/sample'),
+  /** Current prices for products in the user's area, from the feed and the community. */
+  prices: (productIds: string[], l?: { city?: string; area?: string; pincode?: string }) =>
+    request<PriceLookup>('GET', `/prices${loc(l)}${l ? '&' : '?'}ids=${productIds.map(encodeURIComponent).join(',')}`),
+  reportPrice: (body: { productId: string; platform: PlatformId; available: boolean; price?: number; location?: Location }) =>
+    request<{ reported: true }>('POST', '/prices/report', body),
+  reportFees: (body: FeeReportInput & { platform: PlatformId; location?: Location }) => request<{ reported: true }>('POST', '/fees/report', body),
 };
+
+export interface PriceLookup {
+  location: Location;
+  offers: Record<string, ItemOffer[]>;
+  fees: Record<PlatformId, { known: boolean; observedAt: string | null; fees: FeeSchedule | null }>;
+}
+
+export interface FeeReportInput {
+  deliveryFee: number;
+  freeDeliveryAbove: number | null;
+  handlingFee: number;
+  platformFee: number;
+  smallCartFee: number;
+  smallCartBelow: number;
+  minOrderValue: number;
+}

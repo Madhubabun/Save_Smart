@@ -43,6 +43,15 @@ describe.skipIf(!url)('PgStore (PostgreSQL)', () => {
     await store.recordPrices([{ productId: 'amul-taaza-1l', platform: 'zepto', pincode: '560066', price: 49, mrp: 56, date: '2026-10-04' }]);
     expect(await store.priceSnapshots('amul-taaza-1l', '560066', '2026-10-01')).toMatchObject([{ price: 49, platform: 'zepto' }]);
 
+    const now = new Date().toISOString();
+    await store.addPriceReport({ productId: 'amul-taaza-1l', platform: 'zepto', userId: user.id, city: 'Bengaluru', pincode: '560066', price: 50, mrp: 56, available: true, reportedAt: now });
+    const mine = <T extends { userId: string }>(rows: T[]) => rows.filter((r) => r.userId === user.id);
+    expect(mine(await store.priceReports(['amul-taaza-1l'], 'zepto', 'bengaluru', '2026-01-01T00:00:00Z'))).toMatchObject([{ price: 50, mrp: 56, available: true }]);
+    expect(mine(await store.priceReports(null, 'zepto', 'Bengaluru', '2026-01-01T00:00:00Z'))).toHaveLength(1);
+    expect(mine(await store.priceReports(null, 'blinkit', 'Bengaluru', '2026-01-01T00:00:00Z'))).toHaveLength(0);
+    await store.addFeeReport({ platform: 'zepto', userId: user.id, city: 'Bengaluru', pincode: '560066', deliveryFee: 25, freeDeliveryAbove: null, handlingFee: 3, platformFee: 2, smallCartFee: 0, smallCartBelow: 0, minOrderValue: 0, reportedAt: now });
+    expect(mine(await store.feeReports('zepto', 'Bengaluru', '2026-01-01T00:00:00Z'))).toMatchObject([{ deliveryFee: 25, freeDeliveryAbove: null, handlingFee: 3 }]);
+
     expect(await store.deleteSavedCart(user.id, cart.id)).toBe(true);
     expect(await store.listAlerts(user.id)).toHaveLength(0);
   });

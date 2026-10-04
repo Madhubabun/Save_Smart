@@ -12,7 +12,7 @@ import {
 import { useCompareRunner } from '../components/CompareRunner';
 import { PreferencePicker } from '../components/PreferencePicker';
 import { BudgetNote, SharePlanButton, SmartSwaps, useChecklist } from '../components/ResultExtras';
-import { Badge, Button, Card, DemoBadge, EmptyState, LinkButton, Notice, PlatformDot, PlatformTile, SectionTitle, Skeleton, cx } from '../components/ui';
+import { Badge, Button, Card, SourceBadge, EmptyState, LinkButton, Notice, PlatformDot, PlatformTile, SectionTitle, Skeleton, cx } from '../components/ui';
 import { api, ApiError } from '../lib/api';
 import { PREFERENCE_LABELS, platformName, productLabel, productSize, rupees, timeAgo } from '../lib/format';
 import { useApp } from '../state/AppState';
@@ -76,6 +76,10 @@ function ResultsView({ data }: { data: ComparisonResponse }) {
   };
   const shown = plans[view] ?? r.recommended;
   const unavailable = r.unavailableItemIds.map((id) => itemsById.get(id)!).filter(Boolean);
+  const demo = data.dataSource === 'demo';
+  const noPrice = (it: ComparedItem) => Object.values(it.offers).every((o) => o.status === 'not_listed');
+  // Real prices can have gaps (nobody has shared one yet): count item/app pairs with no price.
+  const gaps = demo ? 0 : data.items.reduce((n, it) => n + Object.values(it.offers).filter((o) => o.status === 'not_listed').length, 0);
 
   function changePreference(preference: ShoppingPreference) {
     updatePrefs({ preference });
@@ -88,9 +92,15 @@ function ResultsView({ data }: { data: ComparisonResponse }) {
         {data.notices.map((n, i) => (
           <Notice key={i} notice={n} />
         ))}
-        <EmptyState icon="😕" title="We couldn't build a plan for this cart" action={<LinkButton to="/compare">Edit cart</LinkButton>}>
-          {unavailable.length ? 'None of these products are available on any platform right now.' : 'No platform could be reached. Please try again in a moment.'}
-        </EmptyState>
+        {!demo && data.items.every(noPrice) ? (
+          <EmptyState icon="🧾" title="No recent prices near you yet" action={<LinkButton to="/check">Fill in prices</LinkButton>}>
+            Nobody near {data.location.area || data.location.city} has shared prices for these items in the last 3 days. If you have Blinkit, Zepto, Instamart or BigBasket open, share what you see. It takes a few seconds and helps everyone nearby.
+          </EmptyState>
+        ) : (
+          <EmptyState icon="😕" title="We couldn't build a plan for this cart" action={<LinkButton to="/compare">Edit cart</LinkButton>}>
+            {unavailable.length ? 'None of these products are available on any platform right now.' : 'No platform could be reached. Please try again in a moment.'}
+          </EmptyState>
+        )}
       </div>
     );
   }
@@ -107,10 +117,29 @@ function ResultsView({ data }: { data: ComparisonResponse }) {
           {unavailable.map((it) => (
             <Notice
               key={it.itemId}
-              notice={{ level: 'warning', title: `${productLabel(it.product)} is unavailable everywhere`, message: "It isn't in any plan below, so totals don't include it. Try a different size or brand." }}
+              notice={
+                !demo && noPrice(it)
+                  ? { level: 'warning', title: `No recent price for ${productLabel(it.product)}`, message: "Nobody nearby has shared one in the last 3 days, so it isn't in the totals below." }
+                  : { level: 'warning', title: `${productLabel(it.product)} is unavailable everywhere`, message: "It isn't in any plan below, so totals don't include it. Try a different size or brand." }
+              }
             />
           ))}
         </div>
+      )}
+
+      {gaps > 0 && (
+        <Card className="flex items-center gap-3 p-4">
+          <span className="text-2xl" aria-hidden>
+            🧾
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="font-bold">Some app prices are missing</p>
+            <p className="text-sm text-muted">Filling them in could find you a cheaper plan, and it helps everyone nearby.</p>
+          </div>
+          <LinkButton to="/check" size="sm" variant="secondary">
+            Fill in
+          </LinkButton>
+        </Card>
       )}
 
       <section>
@@ -206,7 +235,7 @@ function ResultsView({ data }: { data: ComparisonResponse }) {
 
       <p className="text-center text-xs text-muted">
         Compared {timeAgo(data.createdAt)} for {data.location.area ? `${data.location.area}, ` : ''}
-        {data.location.city} {data.location.pincode}. {data.dataSource === 'demo' ? 'Prices shown are demo data, not live prices.' : ''} SaveSmart never places orders for you.
+        {data.location.city} {data.location.pincode}. {data.dataSource === 'demo' ? 'Prices shown are demo data, not live prices.' : 'Each price shows when it was last seen; check the app before you pay.'} SaveSmart never places orders for you.
       </p>
     </div>
   );
@@ -224,7 +253,10 @@ function SavingsHero({ data }: { data: ComparisonResponse }) {
       <div className="absolute -bottom-20 -left-10 size-48 rounded-full bg-white/5" aria-hidden />
       <div className="relative">
         <div className="mb-4 flex flex-wrap items-center gap-2">
-          {data.dataSource === 'demo' && <DemoBadge />}
+          {data.dataSource === 'demo' && <SourceBadge source="demo" />}
+          {data.dataSource !== 'demo' && (
+            <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold">{data.dataSource === 'live' ? 'Live prices' : 'Prices shared by shoppers nearby'}</span>
+          )}
           <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold">{PREFERENCE_LABELS[r.preference].title}</span>
         </div>
         <h1 className="text-2xl font-extrabold leading-tight sm:text-3xl">
@@ -539,6 +571,7 @@ function SingleAppList({ data }: { data: ComparisonResponse }) {
 
 function ItemComparisonCard({ item, data }: { item: ComparedItem; data: ComparisonResponse }) {
   const cmp = data.result.itemComparisons.find((c) => c.itemId === item.itemId)!;
+  const demo = data.dataSource === 'demo';
   const okPlatforms = data.platforms.filter((p) => p.status === 'ok').map((p) => p.platform.id);
   const offers = okPlatforms.map((id) => item.offers[id]);
   return (
@@ -578,13 +611,18 @@ function ItemComparisonCard({ item, data }: { item: ComparedItem; data: Comparis
                     {o.unitPriceLabel}
                     {o.packNote ? ` · ${o.packNote}` : ''}
                     {o.availability === 'limited' ? ' · Few left' : ''}
+                    {!demo && o.lastUpdated ? ` · seen ${timeAgo(o.lastUpdated)}` : ''}
                   </span>
                   {o.mrp! > o.price! && <span className="tabular text-xs text-muted line-through">{rupees(o.mrp)}</span>}
                   <span className={cx('tabular w-14 text-right font-bold', cheapest && 'text-save')}>{rupees(o.price)}</span>
                 </>
               ) : (
-                <span className="flex-1 text-xs text-danger">
-                  {o.status === 'out_of_stock' ? `Out of stock on ${platformName(o.platform)}` : `This product is unavailable on ${platformName(o.platform)}`}
+                <span className={cx('flex-1 text-xs', o.status === 'out_of_stock' ? 'text-danger' : 'text-muted')}>
+                  {o.status === 'out_of_stock'
+                    ? `Out of stock on ${platformName(o.platform)}`
+                    : demo
+                      ? `This product is unavailable on ${platformName(o.platform)}`
+                      : `No recent price on ${platformName(o.platform)} yet`}
                 </span>
               )}
             </li>

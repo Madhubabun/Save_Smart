@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { PLATFORMS, PLATFORM_IDS, type CatalogProduct } from '@savesmart/shared';
 import { useCompareRunner } from '../components/CompareRunner';
+import type { CatalogProduct } from '@savesmart/shared';
 import { LocationChip } from '../components/LocationPicker';
 import { PreferencePicker } from '../components/PreferencePicker';
-import { Badge, Button, Card, EmptyState, Notice, PlatformDot, SectionTitle, Sheet, Stepper, cx } from '../components/ui';
+import { Badge, Button, Card, EmptyState, Notice, SectionTitle, Sheet, Stepper, cx } from '../components/ui';
 import { api, ApiError } from '../lib/api';
 import { productLabel, productSize } from '../lib/format';
 import { DEMO_LIST, useApp, type CartLine } from '../state/AppState';
@@ -91,7 +91,6 @@ export function Compare() {
             <SectionTitle>How do you want to save?</SectionTitle>
             <PreferencePicker value={app.prefs.preference} onChange={(preference) => app.updatePrefs({ preference })} />
           </section>
-          <DemoControls />
         </>
       )}
 
@@ -411,31 +410,3 @@ function SaveCartButton() {
   );
 }
 
-function DemoControls() {
-  const { simulateFailures, setSimulateFailures } = useApp();
-  return (
-    <details className="group rounded-2xl border border-line bg-surface p-4">
-      <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-semibold">
-        <span>Demo controls</span>
-        <span className="text-muted transition group-open:rotate-180">▾</span>
-      </summary>
-      <p className="mt-2 text-xs text-muted">Simulate a platform outage to see how SaveSmart keeps comparing the others.</p>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {PLATFORM_IDS.map((id) => {
-          const on = simulateFailures.includes(id);
-          return (
-            <button
-              key={id}
-              onClick={() => setSimulateFailures(on ? simulateFailures.filter((x) => x !== id) : [...simulateFailures, id])}
-              className={cx('inline-flex min-h-9 items-center gap-2 rounded-full border px-3 text-sm', on ? 'border-danger bg-danger-soft text-danger' : 'border-line')}
-              aria-pressed={on}
-            >
-              <PlatformDot id={id} />
-              {on ? `${PLATFORMS[id].shortName} down` : PLATFORMS[id].shortName}
-            </button>
-          );
-        })}
-      </div>
-    </details>
-  );
-}

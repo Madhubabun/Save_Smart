@@ -25,7 +25,7 @@ function data<T>(r: { json: ApiResponse<T> }): T {
 }
 
 beforeAll(async () => {
-  const config = { ...loadConfig({}), demoLatencyMs: 0, rateLimitPerMinute: 10_000, compareRateLimitPerMinute: 10_000, serveFrontend: false };
+  const config = { ...loadConfig({ PRICE_SOURCE: 'demo' }), demoLatencyMs: 0, rateLimitPerMinute: 10_000, compareRateLimitPerMinute: 10_000, serveFrontend: false };
   const app = createApp(config, createServices(config, new MemoryStore()), { log: false });
   server = app.listen(0);
   await new Promise((r) => server.once('listening', r));
@@ -141,7 +141,7 @@ describe('SaveSmart API: other endpoints', () => {
   });
 
   it('rate limits per client', async () => {
-    const config = { ...loadConfig({}), demoLatencyMs: 0, rateLimitPerMinute: 3, serveFrontend: false };
+    const config = { ...loadConfig({ PRICE_SOURCE: 'demo' }), demoLatencyMs: 0, rateLimitPerMinute: 3, serveFrontend: false };
     const app = createApp(config, createServices(config, new MemoryStore()), { log: false });
     const s = app.listen(0);
     await new Promise((r) => s.once('listening', r));

@@ -18,7 +18,8 @@ import { DEFAULT_LOCATION } from '@savesmart/platform-adapters';
 import { hashToken, parse, rateLimit, requireUser } from './http/middleware.js';
 import { AppError, notFound, ok } from './http/respond.js';
 import type { CatalogService } from './services/catalog.js';
-import type { ComparisonService } from './services/comparison.js';
+import type { CommunityAdapter } from './services/community.js';
+import { toOffer, type ComparisonService } from './services/comparison.js';
 import { listLocations, resolveLocation } from './services/location.js';
 import type { PriceService } from './services/prices.js';
 import type { Store, StoredComparison, StoredSavedCart } from './store/types.js';
@@ -28,6 +29,9 @@ export interface Services {
   catalog: CatalogService;
   comparison: ComparisonService;
   prices: PriceService;
+  priceSource: 'feed' | 'community' | 'demo';
+  /** Community price sources, to refresh after a new report. Empty in demo mode. */
+  community: CommunityAdapter[];
 }
 
 // ---- Validation schemas ----
@@ -79,6 +83,28 @@ const alertSchema = z.discriminatedUnion('kind', [
 
 const idParam = z.string().uuid();
 
+const money = (max: number) => z.number().min(0).max(max);
+const reportLocation = locationSchema.extend({ city: text(60).min(1, 'Set your city first.') });
+const priceReportSchema = z.object({
+  productId: text(80).min(1),
+  platform: platformId,
+  available: z.boolean(),
+  price: z.number().positive().max(100000).optional(),
+  mrp: z.number().positive().max(100000).optional(),
+  location: reportLocation.optional(),
+});
+const feeReportSchema = z.object({
+  platform: platformId,
+  deliveryFee: money(500),
+  freeDeliveryAbove: money(10000).nullable(),
+  handlingFee: money(500),
+  platformFee: money(500),
+  smallCartFee: money(500),
+  smallCartBelow: money(5000),
+  minOrderValue: money(5000),
+  location: reportLocation.optional(),
+});
+
 export function createRoutes(s: Services, opts: { compareRateLimitPerMinute: number }): Router {
   const r = Router();
   const user = (req: Request) => req.user!;
@@ -118,7 +144,7 @@ export function createRoutes(s: Services, opts: { compareRateLimitPerMinute: num
 
   // ---- Reference data ----
   r.get('/platforms', (_req, res) => {
-    ok(res, PLATFORM_IDS.map((id) => ({ ...PLATFORMS[id], dataSource: 'demo' })));
+    ok(res, PLATFORM_IDS.map((id) => ({ ...PLATFORMS[id], dataSource: s.priceSource === 'demo' ? 'demo' : s.priceSource === 'feed' ? 'live' : 'community' })));
   });
 
   r.get('/locations', (_req, res) => ok(res, listLocations()));
@@ -139,8 +165,67 @@ export function createRoutes(s: Services, opts: { compareRateLimitPerMinute: num
     const product = s.catalog.get(req.params.id);
     if (!product) throw notFound('Product');
     const loc = parse(locationSchema.partial(), req.query);
-    const { location } = resolveLocation(loc);
+    const { location } = resolveLocation(loc, s.priceSource);
     ok(res, await s.prices.productPrices(product, location));
+  });
+
+  // ---- Community prices: what people saw in the apps, shared by city ----
+  const reportLocationFor = async (userId: string, given?: z.infer<typeof reportLocation>) => {
+    const loc = given ?? (await prefsFor(userId)).location;
+    if (!loc.city) throw new AppError(400, 'no_location', 'Set your city first so your price helps people nearby.');
+    return resolveLocation(loc, s.priceSource).location;
+  };
+
+  r.get('/prices', requireUser, async (req, res) => {
+    const ids = parse(z.string().max(4000), req.query.ids ?? '')
+      .split(',')
+      .map((x) => x.trim())
+      .filter(Boolean)
+      .slice(0, 60);
+    const products = ids.map((id) => s.catalog.get(id)).filter((p): p is NonNullable<typeof p> => !!p);
+    const prefs = await prefsFor(user(req).id);
+    const { location } = resolveLocation({ ...prefs.location, ...parse(locationSchema.partial(), req.query) }, s.priceSource);
+    const quotes = await s.comparison.quote(products, location);
+    const offers: Record<string, ReturnType<typeof toOffer>[]> = {};
+    for (const p of products) offers[p.id] = quotes.map((q) => (q.status === 'ok' ? toOffer(q.platform, p, q.matches.get(p.id)) : { platform: q.platform, status: 'not_listed' as const }));
+    const fees = Object.fromEntries(quotes.map((q) => [q.platform, { known: !!q.fees && q.fees.feesSource !== 'unknown', observedAt: q.fees?.feesObservedAt ?? null, fees: q.fees ?? null }]));
+    ok(res, { location, offers, fees });
+  });
+
+  r.post('/prices/report', requireUser, rateLimit(60, 'report'), async (req, res) => {
+    const body = parse(priceReportSchema, req.body);
+    const product = s.catalog.get(body.productId);
+    if (!product) throw notFound('Product');
+    if (body.available && !body.price) throw new AppError(400, 'invalid_input', 'Enter the price you see.');
+    // Catch typos (₹5 instead of ₹50) before they reach other people.
+    if (body.price && product.mrp > 0 && (body.price < product.mrp * 0.2 || body.price > product.mrp * 3)) {
+      throw new AppError(400, 'price_out_of_range', `That price looks off for ${product.brand} ${product.name}. Check it and try again.`);
+    }
+    const location = await reportLocationFor(user(req).id, body.location);
+    const now = new Date().toISOString();
+    await s.store.addPriceReport({
+      productId: product.id,
+      platform: body.platform,
+      userId: user(req).id,
+      city: location.city,
+      pincode: location.pincode,
+      price: body.price ?? 0.01,
+      mrp: body.mrp ?? null,
+      available: body.available,
+      reportedAt: now,
+    });
+    if (body.available && body.price) {
+      await s.store.recordPrices([{ productId: product.id, platform: body.platform, pincode: location.pincode, price: body.price, mrp: body.mrp ?? body.price, date: now.slice(0, 10) }]).catch(() => {});
+    }
+    s.community.find((c) => c.id === body.platform)?.invalidate(location.city);
+    ok(res, { reported: true }, 201);
+  });
+
+  r.post('/fees/report', requireUser, rateLimit(20, 'report-fees'), async (req, res) => {
+    const body = parse(feeReportSchema, req.body);
+    const location = await reportLocationFor(user(req).id, body.location);
+    await s.store.addFeeReport({ ...body, userId: user(req).id, city: location.city, pincode: location.pincode, reportedAt: new Date().toISOString() });
+    ok(res, { reported: true }, 201);
   });
 
   // ---- Cart ----
@@ -152,7 +237,7 @@ export function createRoutes(s: Services, opts: { compareRateLimitPerMinute: num
   r.post('/cart/compare', requireUser, rateLimit(opts.compareRateLimitPerMinute, 'compare'), async (req, res) => {
     const body = parse(compareSchema, req.body);
     const prefs = await prefsFor(user(req).id);
-    const { location, notice } = resolveLocation(body.location ?? prefs.location);
+    const { location, notice } = resolveLocation(body.location ?? prefs.location, s.priceSource);
     const compared = await s.comparison.compare({
       items: productsOf(body.items),
       location,
@@ -228,7 +313,7 @@ export function createRoutes(s: Services, opts: { compareRateLimitPerMinute: num
 
   r.put('/preferences', requireUser, async (req, res) => {
     const body = parse(preferencesSchema, req.body);
-    const { location } = resolveLocation(body.location);
+    const { location } = resolveLocation(body.location, s.priceSource);
     const prefs: UserPreferences = { ...body, location: { ...location, area: body.location.area || location.area } };
     await s.store.setPreferences(user(req).id, prefs);
     ok(res, prefs);
@@ -261,7 +346,7 @@ export function createRoutes(s: Services, opts: { compareRateLimitPerMinute: num
   r.get('/price-alerts', requireUser, async (req, res) => {
     const u = user(req);
     const prefs = await prefsFor(u.id);
-    const { location } = resolveLocation(prefs.location);
+    const { location } = resolveLocation(prefs.location, s.priceSource);
     const alerts = await s.store.listAlerts(u.id);
     const evaluated = await Promise.all(
       alerts.map(async (a): Promise<PriceAlert> => {

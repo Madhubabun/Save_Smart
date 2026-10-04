@@ -18,6 +18,7 @@ const Product = lazy(() => import('./pages/Product').then((m) => ({ default: m.P
 const SavedCarts = lazy(() => import('./pages/SavedCarts').then((m) => ({ default: m.SavedCarts })));
 const Savings = lazy(() => import('./pages/Savings').then((m) => ({ default: m.Savings })));
 const Alerts = lazy(() => import('./pages/Alerts').then((m) => ({ default: m.Alerts })));
+const CheckPrices = lazy(() => import('./pages/CheckPrices').then((m) => ({ default: m.CheckPrices })));
 const Settings = lazy(() => import('./pages/Settings').then((m) => ({ default: m.Settings })));
 
 createRoot(document.getElementById('root')!).render(
@@ -29,6 +30,7 @@ createRoot(document.getElementById('root')!).render(
             <Route element={<Layout />}>
               <Route index element={<Home />} />
               <Route path="compare" element={<Compare />} />
+              <Route path="check" element={<CheckPrices />} />
               <Route path="results/:id" element={<Results />} />
               <Route path="product/:id" element={<Product />} />
               <Route path="saved" element={<SavedCarts />} />

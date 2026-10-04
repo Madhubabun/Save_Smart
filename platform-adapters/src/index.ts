@@ -10,6 +10,8 @@ export * from './demo/catalog.js';
 export * from './demo/locations.js';
 export * from './demo/sources.js';
 export type * from './demo/rawTypes.js';
+export * from './feed/FeedAdapter.js';
+export type * from './feed/contract.js';
 
 /** Builds the four adapters on top of the demo data provider. Swap the sources to go live. */
 export function createDemoAdapters(provider = new DemoDataProvider(), opts: DemoSourceOptions = {}): PlatformAdapter[] {

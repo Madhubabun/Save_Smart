@@ -6,10 +6,11 @@ import type { Store } from './store/types.js';
 
 const config = loadConfig();
 const store: Store = config.databaseUrl ? new PgStore(config.databaseUrl) : new MemoryStore();
+if (store instanceof PgStore) await store.migrate();
 const app = createApp(config, createServices(config, store));
 
 const server = app.listen(config.port, () => {
-  console.log(`SaveSmart API listening on http://localhost:${config.port} (store: ${store.kind}, prices: demo)`);
+  console.log(`SaveSmart API listening on http://localhost:${config.port} (store: ${store.kind}, prices: ${config.priceSource})`);
 });
 
 const shutdown = () => {

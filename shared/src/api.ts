@@ -67,6 +67,10 @@ export interface ItemOffer {
   lastUpdated?: string;
   productUrl?: string;
   matchScore?: number;
+  /** "live" (licensed feed) or "community" (shared by SaveSmart users). */
+  source?: DataSource;
+  /** Community prices: how many people's reports this is based on. */
+  reports?: number;
 }
 
 export interface ComparedItem {

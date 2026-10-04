@@ -3,9 +3,10 @@ import { useParams } from 'react-router-dom';
 import type { ProductPricesResponse } from '@savesmart/shared';
 import { LocationChip } from '../components/LocationPicker';
 import { PriceChart } from '../components/PriceChart';
-import { Button, Card, DemoBadge, EmptyState, LinkButton, PlatformDot, SectionTitle, Skeleton, cx } from '../components/ui';
+import { PriceRow } from '../components/PriceInputs';
+import { Button, Card, SourceBadge, EmptyState, LinkButton, SectionTitle, Skeleton, cx } from '../components/ui';
 import { api, ApiError } from '../lib/api';
-import { platformName, productLabel, productSize, rupees, timeAgo } from '../lib/format';
+import { platformName, productLabel, productSize, rupees } from '../lib/format';
 import { useApp } from '../state/AppState';
 
 export function Product() {
@@ -13,17 +14,17 @@ export function Product() {
   const { prefs, addProduct, cart } = useApp();
   const [data, setData] = useState<ProductPricesResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [version, setVersion] = useState(0);
 
   useEffect(() => {
-    setData(null);
     api
       .productPrices(id, prefs.location)
       .then(setData)
       .catch((e) => setError(e instanceof ApiError && e.status === 404 ? 'Product not found' : "Couldn't load prices"));
-  }, [id, prefs.location]);
+  }, [id, prefs.location, version]);
 
   if (error) return <EmptyState icon="🔍" title={error} action={<LinkButton to="/compare">Back to cart</LinkButton>} />;
-  if (!data)
+  if (!data || data.product.id !== id)
     return (
       <div className="mx-auto max-w-2xl space-y-4">
         <Skeleton className="h-28" />
@@ -49,7 +50,7 @@ export function Product() {
             {productSize(p)} · {p.category}
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <DemoBadge />
+            <SourceBadge source={data.dataSource} />
             <LocationChip className="min-h-8 text-xs" />
           </div>
         </div>
@@ -69,39 +70,13 @@ export function Product() {
       )}
 
       <section>
-        <SectionTitle>Prices by platform</SectionTitle>
-        <Card className="divide-y divide-line">
+        <SectionTitle>Prices by app</SectionTitle>
+        <Card className="divide-y divide-line px-4">
           {data.offers.map((o) => (
-            <div key={o.platform} className={cx('flex items-center gap-3 p-4', cheapest?.platform === o.platform && 'bg-brand-soft/60')}>
-              <PlatformDot id={o.platform} className="size-3" />
-              <div className="min-w-0 flex-1">
-                <p className="font-semibold">{platformName(o.platform)}</p>
-                {o.status === 'available' ? (
-                  <p className="text-xs text-muted">
-                    {o.listingName}
-                    {o.packNote ? ` · bought as ${o.packNote}` : ''}
-                    <br />
-                    {o.availability === 'limited' ? 'Few left · ' : 'In stock · '}
-                    MRP {rupees(o.mrp)}
-                    {o.discountPercent ? ` · ${o.discountPercent}% off` : ''} · updated {timeAgo(o.lastUpdated)}
-                  </p>
-                ) : (
-                  <p className="text-xs text-danger">{o.status === 'out_of_stock' ? 'Out of stock' : `This product is unavailable on ${platformName(o.platform)}`}</p>
-                )}
-              </div>
-              {o.status === 'available' && (
-                <div className="text-right">
-                  <p className="tabular text-lg font-bold">{rupees(o.price)}</p>
-                  {o.productUrl && (
-                    <a href={o.productUrl} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-brand">
-                      Find ↗
-                    </a>
-                  )}
-                </div>
-              )}
-            </div>
+            <PriceRow key={o.platform} product={p} platform={o.platform} offer={o} showPlatform onShared={() => setVersion((v) => v + 1)} />
           ))}
         </Card>
+        <p className="mt-2 text-xs text-muted">Each price shows who saw it and when. Seeing something different? Share it and everyone nearby gets the update.</p>
       </section>
 
       <section>
@@ -114,7 +89,8 @@ export function Product() {
         </div>
         <Card className="p-4">
           <PriceChart history={data.history} />
-          <p className="mt-3 text-xs text-muted">Lowest price on any platform in the last 30 days: {rupees(data.summary.thirtyDayLow)}. Demo history.</p>
+          <p className="mt-3 text-xs text-muted">Lowest price on any app in the last 30 days: {rupees(data.summary.thirtyDayLow)}.
+            {data.dataSource === 'demo' ? ' Demo history.' : ' Built from prices seen each day; it fills in as more people share.'}</p>
         </Card>
       </section>
 

@@ -1,0 +1,28 @@
+# One-click hosting on Render (https://render.com): the app, its API and a PostgreSQL database.
+# The database sets itself up on first start. Prices come from community reports, plus a
+# licensed feed if you fill in PRICE_FEED_URL and PRICE_FEED_KEY (leave them empty otherwise).
+services:
+  - type: web
+    name: savesmart
+    runtime: node
+    plan: free
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: savesmart-db
+          property: connectionString
+      - key: PRICE_FEED_URL
+        sync: false
+      - key: PRICE_FEED_KEY
+        sync: false
+
+databases:
+  - name: savesmart-db
+    plan: free

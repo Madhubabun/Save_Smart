@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
 import type { PlatformId, SavedCartItem, ShoppingPreference, UserPreferences } from '@savesmart/shared';
-import type { PriceSnapshot, Store, StoredAlert, StoredComparison, StoredSavedCart, User } from './types.js';
+import { migrate } from './migrate.js';
+import type { FeeReport, PriceReport, PriceSnapshot, Store, StoredAlert, StoredComparison, StoredSavedCart, User } from './types.js';
 
 const num = (v: unknown): number | null => (v === null || v === undefined ? null : Number(v));
 const iso = (v: unknown): string | null => (v ? new Date(v as string).toISOString() : null);
@@ -13,6 +14,16 @@ export class PgStore implements Store {
 
   constructor(connectionString: string) {
     this.pool = new pg.Pool({ connectionString, max: 10 });
+  }
+
+  /** Brings the database schema and catalog up to date. Safe to run on every start. */
+  async migrate() {
+    const client = await this.pool.connect();
+    try {
+      await migrate(client);
+    } finally {
+      client.release();
+    }
   }
 
   private async tx<T>(fn: (c: pg.PoolClient) => Promise<T>): Promise<T> {
@@ -264,6 +275,64 @@ export class PgStore implements Store {
       [productId, pincode, sinceDate],
     );
     return rows.map((r) => ({ productId: r.variant_id, platform: r.platform_id, pincode: r.pincode, date: r.d, price: Number(r.price), mrp: Number(r.mrp) }));
+  }
+
+  async addPriceReport(r: PriceReport) {
+    await this.pool.query(
+      `INSERT INTO community_price_reports (variant_id, platform_id, user_id, city, pincode, price, mrp, available, reported_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [r.productId, r.platform, r.userId, r.city, r.pincode, r.price, r.mrp, r.available, r.reportedAt],
+    );
+  }
+
+  async priceReports(productIds: string[] | null, platform: PlatformId, city: string, sinceIso: string): Promise<PriceReport[]> {
+    if (productIds && !productIds.length) return [];
+    const { rows } = await this.pool.query(
+      `SELECT * FROM community_price_reports
+       WHERE ($1::text[] IS NULL OR variant_id = ANY($1)) AND platform_id = $2 AND lower(city) = lower($3) AND reported_at >= $4
+       ORDER BY reported_at DESC LIMIT 20000`,
+      [productIds, platform, city, sinceIso],
+    );
+    return rows.map((r) => ({
+      productId: r.variant_id,
+      platform: r.platform_id,
+      userId: r.user_id,
+      city: r.city,
+      pincode: r.pincode,
+      price: Number(r.price),
+      mrp: num(r.mrp),
+      available: r.available,
+      reportedAt: iso(r.reported_at)!,
+    }));
+  }
+
+  async addFeeReport(r: FeeReport) {
+    await this.pool.query(
+      `INSERT INTO community_fee_reports (platform_id, user_id, city, pincode, delivery_fee, free_delivery_above, handling_fee, platform_fee, small_cart_fee, small_cart_below, min_order_value, reported_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+      [r.platform, r.userId, r.city, r.pincode, r.deliveryFee, r.freeDeliveryAbove, r.handlingFee, r.platformFee, r.smallCartFee, r.smallCartBelow, r.minOrderValue, r.reportedAt],
+    );
+  }
+
+  async feeReports(platform: PlatformId, city: string, sinceIso: string): Promise<FeeReport[]> {
+    const { rows } = await this.pool.query(
+      `SELECT * FROM community_fee_reports WHERE platform_id = $1 AND lower(city) = lower($2) AND reported_at >= $3 ORDER BY reported_at DESC LIMIT 200`,
+      [platform, city, sinceIso],
+    );
+    return rows.map((r) => ({
+      platform: r.platform_id,
+      userId: r.user_id,
+      city: r.city,
+      pincode: r.pincode,
+      deliveryFee: Number(r.delivery_fee),
+      freeDeliveryAbove: num(r.free_delivery_above),
+      handlingFee: Number(r.handling_fee),
+      platformFee: Number(r.platform_fee),
+      smallCartFee: Number(r.small_cart_fee),
+      smallCartBelow: Number(r.small_cart_below),
+      minOrderValue: Number(r.min_order_value),
+      reportedAt: iso(r.reported_at)!,
+    }));
   }
 
   async close() {

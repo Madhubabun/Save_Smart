@@ -52,8 +52,7 @@ export function Layout() {
       </main>
 
       <footer className="mx-auto hidden max-w-5xl px-4 pb-10 text-xs text-muted md:block">
-        SaveSmart shows <strong>demo prices</strong> generated for demonstration; they are not live prices from any platform. SaveSmart never places orders: you finish
-        your purchase on the platform's own app or website.
+        Prices come from a licensed price feed and from prices SaveSmart users saw in the apps, each shown with when it was last seen. SaveSmart never places orders: you finish your purchase in the platform's own app or website.
       </footer>
 
       <nav className="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 backdrop-blur-md md:hidden" aria-label="Main">
