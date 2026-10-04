@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { PLATFORMS, PLATFORM_IDS } from '@savesmart/shared';
 import { useCompareRunner } from '../components/CompareRunner';
 import { ForYou } from '../components/ForYou';
-import { Badge, Button, Card, DemoBadge, PlatformDot } from '../components/ui';
+import { Badge, Button, Card, PlatformDot } from '../components/ui';
 import { api } from '../lib/api';
 import { DEMO_LIST, useApp } from '../state/AppState';
 

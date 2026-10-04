@@ -12,7 +12,7 @@ import {
 import { useCompareRunner } from '../components/CompareRunner';
 import { PreferencePicker } from '../components/PreferencePicker';
 import { BudgetNote, SharePlanButton, SmartSwaps, useChecklist } from '../components/ResultExtras';
-import { Badge, Button, Card, DemoBadge, EmptyState, LinkButton, Notice, PlatformDot, PlatformTile, SectionTitle, Skeleton, cx } from '../components/ui';
+import { Badge, Button, Card, SourceBadge, EmptyState, LinkButton, Notice, PlatformDot, PlatformTile, SectionTitle, Skeleton, cx } from '../components/ui';
 import { api, ApiError } from '../lib/api';
 import { PREFERENCE_LABELS, platformName, productLabel, productSize, rupees, timeAgo } from '../lib/format';
 import { useApp } from '../state/AppState';
@@ -206,7 +206,7 @@ function ResultsView({ data }: { data: ComparisonResponse }) {
 
       <p className="text-center text-xs text-muted">
         Compared {timeAgo(data.createdAt)} for {data.location.area ? `${data.location.area}, ` : ''}
-        {data.location.city} {data.location.pincode}. {data.dataSource === 'demo' ? 'Prices shown are demo data, not live prices.' : ''} SaveSmart never places orders for you.
+        {data.location.city} {data.location.pincode}. {data.dataSource === 'demo' ? 'Prices shown are demo data, not live prices.' : data.dataSource === 'user' ? 'Prices are the ones you checked in each app.' : ''} SaveSmart never places orders for you.
       </p>
     </div>
   );
@@ -224,7 +224,8 @@ function SavingsHero({ data }: { data: ComparisonResponse }) {
       <div className="absolute -bottom-20 -left-10 size-48 rounded-full bg-white/5" aria-hidden />
       <div className="relative">
         <div className="mb-4 flex flex-wrap items-center gap-2">
-          {data.dataSource === 'demo' && <DemoBadge />}
+          {data.dataSource === 'demo' && <SourceBadge source="demo" />}
+          {data.dataSource === 'user' && <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold">Prices you checked</span>}
           <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-semibold">{PREFERENCE_LABELS[r.preference].title}</span>
         </div>
         <h1 className="text-2xl font-extrabold leading-tight sm:text-3xl">

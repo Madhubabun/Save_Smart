@@ -3,8 +3,10 @@ import { useParams } from 'react-router-dom';
 import type { ProductPricesResponse } from '@savesmart/shared';
 import { LocationChip } from '../components/LocationPicker';
 import { PriceChart } from '../components/PriceChart';
-import { Button, Card, DemoBadge, EmptyState, LinkButton, PlatformDot, SectionTitle, Skeleton, cx } from '../components/ui';
-import { api, ApiError } from '../lib/api';
+import { PriceRow } from '../components/PriceInputs';
+import { Button, Card, SourceBadge, EmptyState, LinkButton, PlatformDot, SectionTitle, Skeleton, cx } from '../components/ui';
+import { api, ApiError, onDevice } from '../lib/api';
+import { usePriceBookVersion } from '../local/usePriceBook';
 import { platformName, productLabel, productSize, rupees, timeAgo } from '../lib/format';
 import { useApp } from '../state/AppState';
 
@@ -13,17 +15,17 @@ export function Product() {
   const { prefs, addProduct, cart } = useApp();
   const [data, setData] = useState<ProductPricesResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const bookVersion = usePriceBookVersion();
 
   useEffect(() => {
-    setData(null);
     api
       .productPrices(id, prefs.location)
       .then(setData)
       .catch((e) => setError(e instanceof ApiError && e.status === 404 ? 'Product not found' : "Couldn't load prices"));
-  }, [id, prefs.location]);
+  }, [id, prefs.location, bookVersion]);
 
   if (error) return <EmptyState icon="🔍" title={error} action={<LinkButton to="/compare">Back to cart</LinkButton>} />;
-  if (!data)
+  if (!data || data.product.id !== id)
     return (
       <div className="mx-auto max-w-2xl space-y-4">
         <Skeleton className="h-28" />
@@ -49,7 +51,7 @@ export function Product() {
             {productSize(p)} · {p.category}
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <DemoBadge />
+            <SourceBadge source={data.dataSource} />
             <LocationChip className="min-h-8 text-xs" />
           </div>
         </div>
@@ -68,6 +70,16 @@ export function Product() {
         </Card>
       )}
 
+      {onDevice ? (
+        <section>
+          <SectionTitle>Prices by app</SectionTitle>
+          <Card className="divide-y divide-line px-4">
+            {data.offers.map((o) => (
+              <PriceRow key={o.platform} product={p} platform={o.platform} showPlatform />
+            ))}
+          </Card>
+        </section>
+      ) : (
       <section>
         <SectionTitle>Prices by platform</SectionTitle>
         <Card className="divide-y divide-line">
@@ -103,6 +115,7 @@ export function Product() {
           ))}
         </Card>
       </section>
+      )}
 
       <section>
         <SectionTitle>Price history</SectionTitle>
@@ -114,7 +127,8 @@ export function Product() {
         </div>
         <Card className="p-4">
           <PriceChart history={data.history} />
-          <p className="mt-3 text-xs text-muted">Lowest price on any platform in the last 30 days: {rupees(data.summary.thirtyDayLow)}. Demo history.</p>
+          <p className="mt-3 text-xs text-muted">Lowest price on any app in the last 30 days: {rupees(data.summary.thirtyDayLow)}.
+            {data.dataSource === 'user' ? ' Built from the prices you checked; each check adds a point.' : data.dataSource === 'demo' ? ' Demo history.' : ''}</p>
         </Card>
       </section>
 

@@ -3,6 +3,7 @@ import { Suspense, useEffect } from 'react';
 import { useApp, type ThemeChoice } from '../state/AppState';
 import { Logo } from './Logo';
 import { cx } from './ui';
+import { onDevice } from '../lib/api';
 
 const NAV = [
   { to: '/', label: 'Home', icon: HomeIcon, end: true },
@@ -52,8 +53,10 @@ export function Layout() {
       </main>
 
       <footer className="mx-auto hidden max-w-5xl px-4 pb-10 text-xs text-muted md:block">
-        SaveSmart shows <strong>demo prices</strong> generated for demonstration; they are not live prices from any platform. SaveSmart never places orders: you finish
-        your purchase on the platform's own app or website.
+        {onDevice
+          ? 'SaveSmart compares the prices you check in each app. They stay on this device and are never shared. '
+          : 'Prices come from SaveSmart\'s licensed price feed. '}
+        SaveSmart never places orders: you finish your purchase in the platform's own app or website.
       </footer>
 
       <nav className="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 backdrop-blur-md md:hidden" aria-label="Main">

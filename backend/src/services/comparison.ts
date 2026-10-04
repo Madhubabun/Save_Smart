@@ -243,7 +243,7 @@ export class ComparisonService {
 
     return {
       location: input.location,
-      dataSource: this.adapters.every((a) => a.dataSource === 'live') ? 'live' : 'demo',
+      dataSource: new Set(this.adapters.map((a) => a.dataSource)).size === 1 ? this.adapters[0].dataSource : 'demo',
       items,
       platforms,
       result,

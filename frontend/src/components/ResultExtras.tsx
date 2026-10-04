@@ -102,7 +102,7 @@ export function planAsText(plan: Plan, data: ComparisonResponse): string {
       lines.push(`☐ ${productLabel(it.product)} ${productSize(it.product)} ×${l.quantity}`);
     }
   }
-  lines.push('', data.dataSource === 'demo' ? 'Demo prices · SaveSmart' : 'SaveSmart · Shop smarter. Save more.');
+  lines.push('', data.dataSource === 'demo' ? 'Demo prices · SaveSmart' : 'Planned with SaveSmart · Shop smarter. Save more.');
   return lines.join('\n');
 }
 

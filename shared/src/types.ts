@@ -34,7 +34,8 @@ export type ProductCategory =
   | 'Beverages'
   | 'Household'
   | 'Personal Care'
-  | 'Breakfast';
+  | 'Breakfast'
+  | 'Other';
 
 /** A canonical product in SaveSmart's own catalog. Platforms list it under their own names. */
 export interface CatalogProduct {
@@ -88,7 +89,8 @@ export interface PlatformListing {
   dataSource: DataSource;
 }
 
-export type DataSource = 'demo' | 'live';
+/** demo: generated sample data · live: a licensed price feed · user: prices the user checked in each app themselves. */
+export type DataSource = 'demo' | 'live' | 'user';
 
 export interface Coupon {
   code: string;

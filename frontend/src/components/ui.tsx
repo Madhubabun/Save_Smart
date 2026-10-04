@@ -1,6 +1,6 @@
 import { useEffect, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { PLATFORMS, type Notice as NoticeT, type PlatformId } from '@savesmart/shared';
+import { PLATFORMS, type DataSource, type Notice as NoticeT, type PlatformId } from '@savesmart/shared';
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ');
 export { cx };
@@ -78,10 +78,12 @@ export function Badge({ tone = 'neutral', children, className }: { tone?: 'neutr
   return <span className={cx('inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap', tones[tone], className)}>{children}</span>;
 }
 
-export function DemoBadge({ className }: { className?: string }) {
+/** Says where prices came from. Demo prices are always labelled; checked prices say so too. */
+export function SourceBadge({ source, className }: { source: DataSource; className?: string }) {
+  if (source === 'live') return null;
   return (
-    <Badge tone="accent" className={className}>
-      <span aria-hidden>●</span> Demo prices
+    <Badge tone={source === 'demo' ? 'accent' : 'brand'} className={className}>
+      <span aria-hidden>●</span> {source === 'demo' ? 'Demo prices' : 'Prices you checked'}
     </Badge>
   );
 }

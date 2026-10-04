@@ -17,15 +17,10 @@ import type {
 } from '@savesmart/shared';
 import { storage } from './storage';
 
-export class ApiError extends Error {
-  constructor(
-    readonly status: number,
-    readonly code: string,
-    message: string,
-  ) {
-    super(message);
-  }
-}
+import { ApiError } from './apiError';
+import { localApi } from '../local/localApi';
+
+export { ApiError };
 
 const TOKEN_KEY = 'ss.token';
 let sessionPromise: Promise<string> | null = null;
@@ -75,7 +70,8 @@ async function request<T>(method: string, path: string, body?: unknown, retried 
 const loc = (l?: { city?: string; area?: string; pincode?: string }) =>
   l ? `?${new URLSearchParams({ city: l.city ?? '', area: l.area ?? '', pincode: l.pincode ?? '' })}` : '';
 
-export const api = {
+/** Talks to the SaveSmart server (used with a licensed price feed). */
+const serverApi = {
   searchProducts: (q: string, signal?: AbortSignal) =>
     fetch(`/api/products/search?q=${encodeURIComponent(q)}&limit=8`, { signal })
       .then((r) => r.json() as Promise<ApiResponse<CatalogProduct[]>>)
@@ -100,6 +96,11 @@ export const api = {
     request<unknown>('POST', '/price-alerts', body),
   deleteAlert: (id: string) => request<unknown>('DELETE', `/price-alerts/${id}`),
   savings: () => request<SavingsSummary>('GET', '/savings'),
-  addSampleSavings: () => request<unknown>('POST', '/savings/sample'),
-  clearSampleSavings: () => request<unknown>('DELETE', '/savings/sample'),
 };
+
+/**
+ * Where prices come from. By default SaveSmart runs on the device with prices the user checked
+ * ("onDevice"). Builds with VITE_PRICE_SOURCE=server use the server and its licensed price feed.
+ */
+export const onDevice = import.meta.env.VITE_PRICE_SOURCE !== 'server';
+export const api: typeof serverApi = onDevice ? localApi : serverApi;

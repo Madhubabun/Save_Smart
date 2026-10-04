@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { PLATFORMS, PLATFORM_IDS, type CatalogProduct } from '@savesmart/shared';
-import { useCompareRunner } from '../components/CompareRunner';
 import { LocationChip } from '../components/LocationPicker';
 import { PreferencePicker } from '../components/PreferencePicker';
 import { Badge, Button, Card, EmptyState, Notice, PlatformDot, SectionTitle, Sheet, Stepper, cx } from '../components/ui';
@@ -13,7 +12,7 @@ type Tab = 'search' | 'paste' | 'manual';
 
 export function Compare() {
   const app = useApp();
-  const { run, running } = useCompareRunner();
+  const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>(app.cart.length ? 'search' : 'paste');
   const [message, setMessage] = useState<{ level: 'info' | 'warning'; title: string; message: string } | null>(null);
   const needsConfirm = app.cart.filter((l) => l.confidence === 'low').length;
@@ -21,7 +20,10 @@ export function Compare() {
   return (
     <div className={cx('mx-auto max-w-2xl space-y-6', app.cart.length > 0 && 'pb-28 md:pb-0')}>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-extrabold tracking-tight">My Cart</h1>
+        <div>
+          <p className="text-sm font-semibold text-brand">Step 1 of 2</p>
+          <h1 className="text-2xl font-extrabold tracking-tight">My Cart</h1>
+        </div>
         <LocationChip />
       </div>
 
@@ -91,7 +93,6 @@ export function Compare() {
             <SectionTitle>How do you want to save?</SectionTitle>
             <PreferencePicker value={app.prefs.preference} onChange={(preference) => app.updatePrefs({ preference })} />
           </section>
-          <DemoControls />
         </>
       )}
 
@@ -99,8 +100,8 @@ export function Compare() {
         <div className="fixed inset-x-0 bottom-16 z-30 border-t border-line bg-bg/95 px-4 py-3 backdrop-blur-md md:static md:border-0 md:bg-transparent md:p-0">
           <div className="mx-auto max-w-2xl">
             {needsConfirm > 0 && <p className="mb-2 text-center text-xs text-muted">{needsConfirm} item{needsConfirm > 1 ? 's use' : ' uses'} our best guess. Tap "Confirm" to check.</p>}
-            <Button size="lg" className="w-full text-[17px]" onClick={() => run()} loading={running}>
-              Compare Prices
+            <Button size="lg" className="w-full text-[17px]" onClick={() => navigate('/check')}>
+              Next: check prices
             </Button>
           </div>
         </div>
@@ -411,31 +412,3 @@ function SaveCartButton() {
   );
 }
 
-function DemoControls() {
-  const { simulateFailures, setSimulateFailures } = useApp();
-  return (
-    <details className="group rounded-2xl border border-line bg-surface p-4">
-      <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-semibold">
-        <span>Demo controls</span>
-        <span className="text-muted transition group-open:rotate-180">▾</span>
-      </summary>
-      <p className="mt-2 text-xs text-muted">Simulate a platform outage to see how SaveSmart keeps comparing the others.</p>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {PLATFORM_IDS.map((id) => {
-          const on = simulateFailures.includes(id);
-          return (
-            <button
-              key={id}
-              onClick={() => setSimulateFailures(on ? simulateFailures.filter((x) => x !== id) : [...simulateFailures, id])}
-              className={cx('inline-flex min-h-9 items-center gap-2 rounded-full border px-3 text-sm', on ? 'border-danger bg-danger-soft text-danger' : 'border-line')}
-              aria-pressed={on}
-            >
-              <PlatformDot id={id} />
-              {on ? `${PLATFORMS[id].shortName} down` : PLATFORMS[id].shortName}
-            </button>
-          );
-        })}
-      </div>
-    </details>
-  );
-}

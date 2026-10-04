@@ -7,18 +7,10 @@ import { platformName, rupees } from '../lib/format';
 
 export function Savings() {
   const [data, setData] = useState<SavingsSummary | null>(null);
-  const [busy, setBusy] = useState(false);
   const load = () => api.savings().then(setData).catch(() => setData(null));
   useEffect(() => {
     load();
   }, []);
-
-  async function sample(add: boolean) {
-    setBusy(true);
-    await (add ? api.addSampleSavings() : api.clearSampleSavings()).catch(() => {});
-    await load();
-    setBusy(false);
-  }
 
   if (!data)
     return (
@@ -35,14 +27,6 @@ export function Savings() {
           <h1 className="text-2xl font-extrabold tracking-tight">My Savings</h1>
           <p className="text-sm text-muted">Counted when you continue to a platform from a SaveSmart plan.</p>
         </div>
-        {data.includesSample && (
-          <div className="flex items-center gap-2">
-            <Badge tone="accent">Includes sample data</Badge>
-            <Button size="sm" variant="ghost" onClick={() => sample(false)} loading={busy}>
-              Clear sample
-            </Button>
-          </div>
-        )}
       </div>
 
       <BudgetCard thisMonthSpent={data.thisMonthSpent} thisMonthSaved={data.thisMonthSaved} />
@@ -52,12 +36,7 @@ export function Savings() {
           icon="🐷"
           title="No savings yet"
           action={
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <LinkButton to="/compare">Compare a cart</LinkButton>
-              <Button variant="secondary" onClick={() => sample(true)} loading={busy}>
-                Show sample dashboard
-              </Button>
-            </div>
+            <LinkButton to="/compare">Compare a cart</LinkButton>
           }
         >
           Compare a cart and open a platform from your plan. Your savings will add up here.
@@ -102,7 +81,7 @@ export function Savings() {
                       <p className="font-medium">{e.platforms.map(platformName).join(' + ')}</p>
                       <p className="text-xs text-muted">
                         {new Date(e.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} · paid {rupees(e.total)}
-                        {e.sample ? ' · sample' : ''}
+                        
                       </p>
                     </div>
                     <span className="tabular font-bold text-save">+{rupees(e.saved)}</span>

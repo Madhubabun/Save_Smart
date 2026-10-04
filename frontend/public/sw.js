@@ -1,7 +1,9 @@
 // SaveSmart service worker: makes the app open instantly and work as an installed app.
 // Prices are never cached here: every /api request always goes to the network.
-const CACHE = 'savesmart-shell-v1';
-const SHELL = ['/', '/manifest.webmanifest', '/icon.svg', '/icon-192.png', '/favicon.svg'];
+const CACHE = 'savesmart-shell-v2';
+// Paths are relative to where the app is hosted (the site root, or a sub-path such as GitHub Pages).
+const BASE = new URL('./', self.location).pathname;
+const SHELL = ['', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'favicon.svg'].map((p) => BASE + p);
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -19,7 +21,7 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   const url = new URL(req.url);
-  if (req.method !== 'GET' || url.origin !== self.location.origin || url.pathname.startsWith('/api')) return;
+  if (req.method !== 'GET' || url.origin !== self.location.origin || url.pathname.startsWith(BASE + 'api/')) return;
 
   // Pages: network first so updates show up, cached shell when offline.
   if (req.mode === 'navigate') {
@@ -27,16 +29,16 @@ self.addEventListener('fetch', (event) => {
       fetch(req)
         .then((res) => {
           const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put('/', copy));
+          caches.open(CACHE).then((c) => c.put(BASE, copy));
           return res;
         })
-        .catch(() => caches.match('/')),
+        .catch(() => caches.match(BASE)),
     );
     return;
   }
 
   // Hashed build assets never change: cache first.
-  if (url.pathname.startsWith('/assets/') || SHELL.includes(url.pathname)) {
+  if (url.pathname.startsWith(BASE + 'assets/') || SHELL.includes(url.pathname)) {
     event.respondWith(
       caches.match(req).then(
         (hit) =>
