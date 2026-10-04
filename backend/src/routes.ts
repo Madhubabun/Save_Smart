@@ -7,6 +7,7 @@ import {
   SHOPPING_PREFERENCES,
   round2,
   type ComparisonResponse,
+  type ComparisonSummary,
   type PlatformId,
   type PriceAlert,
   type SavedCart,
@@ -65,6 +66,7 @@ const preferencesSchema = z.object({
   location: locationSchema,
   memberships: z.array(platformId).max(4).default([]),
   maxOrders: z.number().int().min(1).max(4).optional(),
+  monthlyBudget: z.number().positive().max(1_000_000).optional(),
 });
 
 const savedCartSchema = z.object({ name: text(60).min(1), items: cartItems.min(1) });
@@ -185,6 +187,27 @@ export function createRoutes(s: Services, opts: { compareRateLimitPerMinute: num
       response,
     });
     ok(res, response);
+  });
+
+  r.get('/comparisons', requireUser, async (req, res) => {
+    const recent = await s.store.listRecentComparisons(user(req).id, 20);
+    ok(
+      res,
+      recent.map(
+        (c): ComparisonSummary => ({
+          id: c.id,
+          createdAt: c.createdAt,
+          location: c.response?.location ?? { city: '', area: '', pincode: '' },
+          itemCount: c.response?.items.length ?? 0,
+          total: c.recommendedTotal,
+          savings: c.savings,
+          orderCount: c.orderCount,
+          platforms: c.platforms,
+          purchased: !!c.purchasedAt,
+          savedCartId: c.savedCartId,
+        }),
+      ),
+    );
   });
 
   r.get('/comparisons/:id', requireUser, async (req, res) => {
@@ -328,6 +351,9 @@ export function createRoutes(s: Services, opts: { compareRateLimitPerMinute: num
       for (const p of e.platforms) byPlatform.set(p, (byPlatform.get(p) ?? 0) + 1);
     }
     const totalSaved = round2(entries.reduce((a, e) => a + e.savings, 0));
+    const month = new Date().toISOString().slice(0, 7);
+    const thisMonth = entries.filter((e) => e.purchasedAt!.startsWith(month));
+    const prefs = await prefsFor(user(req).id);
     const summary: SavingsSummary = {
       totalSaved,
       ordersOptimized: entries.length,
@@ -347,6 +373,9 @@ export function createRoutes(s: Services, opts: { compareRateLimitPerMinute: num
         sample: e.sample,
       })),
       includesSample: entries.some((e) => e.sample),
+      thisMonthSpent: round2(thisMonth.reduce((a, e) => a + (e.recommendedTotal ?? 0), 0)),
+      thisMonthSaved: round2(thisMonth.reduce((a, e) => a + e.savings, 0)),
+      monthlyBudget: prefs.monthlyBudget ?? null,
     };
     ok(res, summary);
   });

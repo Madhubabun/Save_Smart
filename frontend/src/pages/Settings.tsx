@@ -4,11 +4,15 @@ import { PreferencePicker } from '../components/PreferencePicker';
 import { Card, PlatformDot, SectionTitle, cx } from '../components/ui';
 import { useApp, type ThemeChoice } from '../state/AppState';
 import { Logo } from '../components/Logo';
+import { BudgetCard } from '../components/BudgetCard';
+import { Button } from '../components/ui';
+import { useInstallPrompt } from '../lib/pwa';
 
 const MEMBERSHIPS: Record<string, string> = { zepto: 'Zepto Pass', instamart: 'Swiggy One', bigbasket: 'BB Star' };
 
 export function Settings() {
   const { prefs, updatePrefs, theme, setTheme } = useApp();
+  const pwa = useInstallPrompt();
   return (
     <div className="mx-auto max-w-2xl space-y-7">
       <h1 className="text-2xl font-extrabold tracking-tight">Settings</h1>
@@ -21,6 +25,11 @@ export function Settings() {
       <section>
         <SectionTitle>How do you want to save?</SectionTitle>
         <PreferencePicker value={prefs.preference} onChange={(preference) => updatePrefs({ preference })} />
+      </section>
+
+      <section>
+        <SectionTitle>Budget</SectionTitle>
+        <BudgetCard />
       </section>
 
       <section>
@@ -80,6 +89,21 @@ export function Settings() {
           ))}
         </div>
       </section>
+
+      {pwa.available && (
+        <Card className="flex items-center gap-3 p-4">
+          <span className="text-2xl" aria-hidden>
+            📲
+          </span>
+          <div className="flex-1">
+            <p className="font-bold">Install SaveSmart</p>
+            <p className="text-sm text-muted">Open it from your home screen, like any other app.</p>
+          </div>
+          <Button size="sm" onClick={pwa.install}>
+            Install
+          </Button>
+        </Card>
+      )}
 
       <section>
         <SectionTitle>About SaveSmart</SectionTitle>

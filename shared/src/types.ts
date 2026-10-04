@@ -156,6 +156,8 @@ export interface UserPreferences {
   memberships: PlatformId[];
   /** Never split across more platforms than this. */
   maxOrders?: number;
+  /** Monthly grocery budget in rupees, for spend tracking. */
+  monthlyBudget?: number;
 }
 
 /** Consistent API envelope used by every endpoint. */

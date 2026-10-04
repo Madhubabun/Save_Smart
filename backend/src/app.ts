@@ -14,7 +14,7 @@ import type { Store } from './store/types.js';
 
 export function createServices(config: Config, store: Store): Services {
   const demo = new DemoDataProvider();
-  const comparison = new ComparisonService(createDemoAdapters(demo, { latencyMs: config.demoLatencyMs }), config.platformTimeoutMs);
+  const comparison = new ComparisonService(createDemoAdapters(demo, { latencyMs: config.demoLatencyMs }), config.platformTimeoutMs, DEMO_CATALOG);
   return {
     store,
     catalog: new CatalogService(DEMO_CATALOG),

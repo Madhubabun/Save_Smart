@@ -36,6 +36,8 @@ const PRICE_OVERRIDES: Record<string, Partial<Record<PlatformId, number | null>>
   'white-eggs-6': { blinkit: 48, zepto: 42, instamart: 46, bigbasket: 46 },
   'hybrid-tomato-1kg': { blinkit: 36, zepto: 42, instamart: 41, bigbasket: 34 },
   'daawat-rozana-basmati-5kg': { blinkit: 459, zepto: 489, instamart: 469, bigbasket: 439 },
+  // BigBasket's own label: only sold there, and cheaper than the branded pack (powers the Smart Swaps demo).
+  'bb-royal-basmati-5kg': { blinkit: null, zepto: null, instamart: null, bigbasket: 389 },
   'good-day-cashew-200g': { blinkit: 36, zepto: 32, instamart: 40, bigbasket: 38 },
   'amul-taaza-500ml': { blinkit: 28, zepto: 27, instamart: 28, bigbasket: 28 },
 };

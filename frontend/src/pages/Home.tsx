@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PLATFORMS, PLATFORM_IDS } from '@savesmart/shared';
 import { useCompareRunner } from '../components/CompareRunner';
+import { ForYou } from '../components/ForYou';
 import { Badge, Button, Card, DemoBadge, PlatformDot } from '../components/ui';
 import { api } from '../lib/api';
 import { DEMO_LIST, useApp } from '../state/AppState';
@@ -67,6 +68,8 @@ export function Home() {
 
         <ExampleCard />
       </section>
+
+      <ForYou />
 
       <section>
         <h2 className="text-center text-2xl font-bold tracking-tight">Don't just find the cheapest product.</h2>

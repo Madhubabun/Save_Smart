@@ -91,6 +91,25 @@ export interface Notice {
   message: string;
 }
 
+/**
+ * A suggestion to buy something equivalent for less: the same product in a
+ * different pack size, or a similar product from another brand.
+ */
+export interface SmartSwap {
+  itemId: string;
+  kind: 'pack_size' | 'similar_product';
+  from: CatalogProduct;
+  fromQuantity: number;
+  to: CatalogProduct;
+  toQuantity: number;
+  /** Cheapest current cost of the cart line, and of the swap, before order fees. */
+  fromBest: { platform: PlatformId; total: number };
+  toBest: { platform: PlatformId; total: number };
+  /** How much the recommended plan total drops with this swap, fees and order splits included. */
+  estimatedSaving: number;
+  reason: string;
+}
+
 export interface ComparisonResponse {
   id: string;
   createdAt: string;
@@ -100,6 +119,22 @@ export interface ComparisonResponse {
   platforms: PlatformStatus[];
   result: OptimizationResult;
   notices: Notice[];
+  swaps: SmartSwap[];
+  /** How much the recommended plan drops if every swap is applied together. */
+  swapAllSaving: number;
+}
+
+export interface ComparisonSummary {
+  id: string;
+  createdAt: string;
+  location: Location;
+  itemCount: number;
+  total: number | null;
+  savings: number;
+  orderCount: number;
+  platforms: PlatformId[];
+  purchased: boolean;
+  savedCartId: string | null;
 }
 
 export interface PricePoint {
@@ -177,6 +212,10 @@ export interface SavingsSummary {
   byPlatform: { platform: PlatformId; orders: number }[];
   recent: SavingsEntry[];
   includesSample: boolean;
+  /** Spent this calendar month on plans the user continued with. */
+  thisMonthSpent: number;
+  thisMonthSaved: number;
+  monthlyBudget: number | null;
 }
 
 export interface SessionResponse {

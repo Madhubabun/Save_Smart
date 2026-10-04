@@ -113,6 +113,13 @@ export class MemoryStore implements Store {
       .sort((a, b) => b.purchasedAt!.localeCompare(a.purchasedAt!));
   }
 
+  async listRecentComparisons(userId: string, limit: number) {
+    return [...this.comparisons.values()]
+      .filter((c) => c.userId === userId && !c.sample)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, limit);
+  }
+
   async addSampleSavings(_userId: string, entries: StoredComparison[]) {
     for (const e of entries) this.comparisons.set(e.id, e);
   }

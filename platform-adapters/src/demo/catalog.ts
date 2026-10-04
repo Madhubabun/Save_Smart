@@ -58,6 +58,7 @@ const ROWS: Row[] = [
 
   // Staples
   ['daawat-rozana-basmati-5kg', 'Daawat', 'Rozana Basmati Rice', '', 5000, 'g', 'Staples', '🍚', 520, 80, ['chawal']],
+  ['bb-royal-basmati-5kg', 'BB Royal', 'Basmati Rice', '', 5000, 'g', 'Staples', '🍚', 470, 45, ['chawal']],
   ['india-gate-classic-basmati-1kg', 'India Gate', 'Classic Basmati Rice', '', 1000, 'g', 'Staples', '🍚', 230, 60, ['chawal']],
   ['fortune-sona-masoori-5kg', 'Fortune', 'Sona Masoori Rice', '', 5000, 'g', 'Staples', '🍚', 425, 70, ['chawal']],
   ['aashirvaad-atta-5kg', 'Aashirvaad', 'Whole Wheat Atta', '', 5000, 'g', 'Staples', '🌾', 305, 90, ['flour', 'gehu', 'chakki']],
