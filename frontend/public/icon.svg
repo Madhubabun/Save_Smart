@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="SaveSmart">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#10B981"/>
+      <stop offset="1" stop-color="#047857"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="15" fill="url(#g)"/>
+  <!-- cart -->
+  <path d="M10 17h6l4.5 22h24.5l4.5-16H18.5" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="24" cy="47" r="3.6" fill="#fff"/>
+  <circle cx="41" cy="47" r="3.6" fill="#fff"/>
+  <!-- rupee inside the basket -->
+  <path d="M28.6 27.2h9.2M28.6 30.3h9.2M31 27.2c4.3 0 4.3 6.3 0 6.3h-1.8l5.4 3" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- savings check -->
+  <circle cx="50" cy="13" r="8.5" fill="#FBBF24"/>
+  <path d="M46.2 13.2l2.7 2.7 5-5.4" fill="none" stroke="#064E3B" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
