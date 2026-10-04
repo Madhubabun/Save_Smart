@@ -50,7 +50,7 @@ export class PriceService {
     return {
       product,
       location,
-      dataSource: 'demo',
+      dataSource: this.demo ? 'demo' : 'live',
       offers,
       history,
       summary: {

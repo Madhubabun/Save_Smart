@@ -114,10 +114,6 @@ export function Home() {
           </ul>
         </Card>
       </section>
-
-      <p className="flex items-center justify-center gap-2 text-center text-xs text-muted md:hidden">
-        <DemoBadge /> Prices are demo data, not live.
-      </p>
     </div>
   );
 }

@@ -9,7 +9,7 @@ const store: Store = config.databaseUrl ? new PgStore(config.databaseUrl) : new 
 const app = createApp(config, createServices(config, store));
 
 const server = app.listen(config.port, () => {
-  console.log(`SaveSmart API listening on http://localhost:${config.port} (store: ${store.kind}, prices: demo)`);
+  console.log(`SaveSmart API listening on http://localhost:${config.port} (store: ${store.kind}, prices: ${config.priceSource === "feed" ? "licensed feed" : "demo"})`);
 });
 
 const shutdown = () => {

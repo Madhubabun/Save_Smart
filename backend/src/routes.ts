@@ -28,6 +28,7 @@ export interface Services {
   catalog: CatalogService;
   comparison: ComparisonService;
   prices: PriceService;
+  priceSource: 'feed' | 'demo';
 }
 
 // ---- Validation schemas ----
@@ -118,7 +119,7 @@ export function createRoutes(s: Services, opts: { compareRateLimitPerMinute: num
 
   // ---- Reference data ----
   r.get('/platforms', (_req, res) => {
-    ok(res, PLATFORM_IDS.map((id) => ({ ...PLATFORMS[id], dataSource: 'demo' })));
+    ok(res, PLATFORM_IDS.map((id) => ({ ...PLATFORMS[id], dataSource: s.priceSource === 'feed' ? 'live' : 'demo' })));
   });
 
   r.get('/locations', (_req, res) => ok(res, listLocations()));
@@ -139,7 +140,7 @@ export function createRoutes(s: Services, opts: { compareRateLimitPerMinute: num
     const product = s.catalog.get(req.params.id);
     if (!product) throw notFound('Product');
     const loc = parse(locationSchema.partial(), req.query);
-    const { location } = resolveLocation(loc);
+    const { location } = resolveLocation(loc, s.priceSource);
     ok(res, await s.prices.productPrices(product, location));
   });
 
@@ -152,7 +153,7 @@ export function createRoutes(s: Services, opts: { compareRateLimitPerMinute: num
   r.post('/cart/compare', requireUser, rateLimit(opts.compareRateLimitPerMinute, 'compare'), async (req, res) => {
     const body = parse(compareSchema, req.body);
     const prefs = await prefsFor(user(req).id);
-    const { location, notice } = resolveLocation(body.location ?? prefs.location);
+    const { location, notice } = resolveLocation(body.location ?? prefs.location, s.priceSource);
     const compared = await s.comparison.compare({
       items: productsOf(body.items),
       location,
@@ -228,7 +229,7 @@ export function createRoutes(s: Services, opts: { compareRateLimitPerMinute: num
 
   r.put('/preferences', requireUser, async (req, res) => {
     const body = parse(preferencesSchema, req.body);
-    const { location } = resolveLocation(body.location);
+    const { location } = resolveLocation(body.location, s.priceSource);
     const prefs: UserPreferences = { ...body, location: { ...location, area: body.location.area || location.area } };
     await s.store.setPreferences(user(req).id, prefs);
     ok(res, prefs);
@@ -261,7 +262,7 @@ export function createRoutes(s: Services, opts: { compareRateLimitPerMinute: num
   r.get('/price-alerts', requireUser, async (req, res) => {
     const u = user(req);
     const prefs = await prefsFor(u.id);
-    const { location } = resolveLocation(prefs.location);
+    const { location } = resolveLocation(prefs.location, s.priceSource);
     const alerts = await s.store.listAlerts(u.id);
     const evaluated = await Promise.all(
       alerts.map(async (a): Promise<PriceAlert> => {

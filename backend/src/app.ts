@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
-import { DEMO_CATALOG, DemoDataProvider, createDemoAdapters } from '@savesmart/platform-adapters';
+import { DEMO_CATALOG, DemoDataProvider, createDemoAdapters, createFeedAdapters } from '@savesmart/platform-adapters';
 import type { Config } from './config.js';
 import { authenticate, cors, errorHandler, rateLimit, requestLogger, securityHeaders } from './http/middleware.js';
 import { fail } from './http/respond.js';
@@ -13,13 +13,15 @@ import { PriceService } from './services/prices.js';
 import type { Store } from './store/types.js';
 
 export function createServices(config: Config, store: Store): Services {
-  const demo = new DemoDataProvider();
-  const comparison = new ComparisonService(createDemoAdapters(demo, { latencyMs: config.demoLatencyMs }), config.platformTimeoutMs, DEMO_CATALOG);
+  const demo = config.priceSource === 'demo' ? new DemoDataProvider() : null;
+  const adapters = demo ? createDemoAdapters(demo, { latencyMs: config.demoLatencyMs }) : createFeedAdapters(config.priceFeed!);
+  const comparison = new ComparisonService(adapters, config.platformTimeoutMs, DEMO_CATALOG);
   return {
     store,
     catalog: new CatalogService(DEMO_CATALOG),
     comparison,
     prices: new PriceService(comparison, store, demo),
+    priceSource: config.priceSource,
   };
 }
 

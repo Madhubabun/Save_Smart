@@ -11,6 +11,12 @@ export interface Config {
   demoLatencyMs: number;
   serveFrontend: boolean;
   isProduction: boolean;
+  /**
+   * Where prices come from. "feed": a licensed price feed (PRICE_FEED_URL + PRICE_FEED_KEY).
+   * "demo": generated sample data for development and tests, always labelled in the app.
+   */
+  priceSource: 'feed' | 'demo';
+  priceFeed: { baseUrl: string; apiKey: string } | null;
 }
 
 function int(name: string, fallback: number): number {
@@ -35,5 +41,17 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     demoLatencyMs: int('DEMO_LATENCY_MS', 120),
     serveFrontend: env.SERVE_FRONTEND !== 'false',
     isProduction: env.NODE_ENV === 'production',
+    ...priceSource(env),
   };
+}
+
+function priceSource(env: NodeJS.ProcessEnv): Pick<Config, 'priceSource' | 'priceFeed'> {
+  const url = env.PRICE_FEED_URL?.trim();
+  const key = env.PRICE_FEED_KEY?.trim();
+  const source = env.PRICE_SOURCE?.trim() || (url ? 'feed' : 'demo');
+  if (source === 'demo') return { priceSource: 'demo', priceFeed: null };
+  if (source !== 'feed') throw new Error('PRICE_SOURCE must be "feed" or "demo".');
+  if (!url || !key) throw new Error('PRICE_SOURCE=feed needs PRICE_FEED_URL and PRICE_FEED_KEY.');
+  if (!/^https:\/\//.test(url) && !/^http:\/\/(localhost|127\.0\.0\.1)/.test(url)) throw new Error('PRICE_FEED_URL must use https.');
+  return { priceSource: 'feed', priceFeed: { baseUrl: url, apiKey: key } };
 }

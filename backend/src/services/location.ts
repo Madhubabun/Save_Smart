@@ -10,8 +10,10 @@ export function listLocations(): LocationOption[] {
  * Never requires GPS: manual city/area/pincode always works, and an unknown
  * pincode falls back to the city (or the default) with a clear notice.
  */
-export function resolveLocation(input: Partial<Location> | undefined): { location: Location; notice?: Notice } {
+export function resolveLocation(input: Partial<Location> | undefined, source: 'feed' | 'demo' = 'demo'): { location: Location; notice?: Notice } {
   if (!input?.pincode && !input?.city) return { location: strip(DEFAULT_LOCATION) };
+  // A live feed covers wherever the platforms deliver: use exactly what the user entered.
+  if (source === 'feed') return { location: { city: input.city?.trim() || '', area: input.area?.trim() || '', pincode: input.pincode?.trim() || '' } };
   if (input.pincode) {
     const exact = findDemoLocation(input.pincode);
     if (exact) return { location: strip(exact) };
