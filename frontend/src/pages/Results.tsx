@@ -11,6 +11,7 @@ import {
 } from '@savesmart/shared';
 import { useCompareRunner } from '../components/CompareRunner';
 import { PreferencePicker } from '../components/PreferencePicker';
+import { BudgetNote, SharePlanButton, SmartSwaps, useChecklist } from '../components/ResultExtras';
 import { Badge, Button, Card, DemoBadge, EmptyState, LinkButton, Notice, PlatformDot, PlatformTile, SectionTitle, Skeleton, cx } from '../components/ui';
 import { api, ApiError } from '../lib/api';
 import { PREFERENCE_LABELS, platformName, productLabel, productSize, rupees, timeAgo } from '../lib/format';
@@ -65,6 +66,7 @@ function ResultsView({ data }: { data: ComparisonResponse }) {
   const r = data.result;
   const [view, setView] = useState<View>('recommended');
   const itemsById = useMemo(() => new Map(data.items.map((i) => [i.itemId, i])), [data.items]);
+  const checklist = useChecklist(data.id);
 
   const plans: Record<View, Plan | null> = {
     recommended: r.recommended,
@@ -149,12 +151,14 @@ function ResultsView({ data }: { data: ComparisonResponse }) {
           </SectionTitle>
           <div className="space-y-3">
             {shown.orders.map((o, i) => (
-              <OrderCard key={o.platform} order={o} index={i} itemsById={itemsById} comparisonId={data.id} />
+              <OrderCard key={o.platform} order={o} index={i} itemsById={itemsById} comparisonId={data.id} checklist={checklist} />
             ))}
           </div>
           <TotalCard plan={shown} data={data} />
         </section>
       )}
+
+      <SmartSwaps data={data} />
 
       {r.explanations.length > 0 && (
         <section>
@@ -190,13 +194,14 @@ function ResultsView({ data }: { data: ComparisonResponse }) {
         </div>
       </section>
 
-      <div className="flex flex-col gap-3 sm:flex-row">
+      <div className="grid gap-3 sm:grid-cols-3">
         <LinkButton to="/compare" variant="secondary" className="flex-1">
           Edit cart
         </LinkButton>
         <Button variant="secondary" className="flex-1" onClick={() => run({ replace: true })} loading={running}>
           Compare again
         </Button>
+        {shown && <SharePlanButton plan={shown} data={data} />}
       </div>
 
       <p className="text-center text-xs text-muted">
@@ -347,7 +352,20 @@ function OptionCard({
   );
 }
 
-function OrderCard({ order, index, itemsById, comparisonId }: { order: PlatformOrder; index: number; itemsById: Map<string, ComparedItem>; comparisonId: string }) {
+function OrderCard({
+  order,
+  index,
+  itemsById,
+  comparisonId,
+  checklist,
+}: {
+  order: PlatformOrder;
+  index: number;
+  itemsById: Map<string, ComparedItem>;
+  comparisonId: string;
+  checklist: ReturnType<typeof useChecklist>;
+}) {
+  const done = order.lines.filter((l) => checklist.checked.includes(l.itemId)).length;
   const p = PLATFORMS[order.platform];
   const fees: [string, number][] = (
     [
@@ -373,16 +391,23 @@ function OrderCard({ order, index, itemsById, comparisonId }: { order: PlatformO
           <p className="tabular text-2xl font-extrabold">{rupees(order.total)}</p>
         </div>
 
-        <ul className="mt-4 space-y-2">
+        <ul className="mt-4 space-y-1">
           {order.lines.map((line) => {
             const item = itemsById.get(line.itemId)!;
             const offer = item.offers[order.platform];
+            const ticked = checklist.checked.includes(line.itemId);
             return (
-              <li key={line.itemId} className="flex items-center gap-3 text-[15px]">
-                <span className="text-save" aria-hidden>
+              <li key={line.itemId}>
+                <button
+                  className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-xl px-2 py-1.5 text-left text-[15px] hover:bg-surface-2"
+                  onClick={() => checklist.toggle(line.itemId)}
+                  aria-pressed={ticked}
+                  aria-label={`${ticked ? 'Added' : 'Not added yet'}: ${productLabel(item.product)}`}
+                >
+                <span className={cx('flex size-5 shrink-0 items-center justify-center rounded-md border-2 text-xs font-bold', ticked ? 'border-brand bg-brand text-brand-ink' : 'border-line text-transparent')} aria-hidden>
                   ✓
                 </span>
-                <span className="min-w-0 flex-1">
+                <span className={cx('min-w-0 flex-1', ticked && 'text-muted line-through')}>
                   <span className="font-medium">{productLabel(item.product)}</span>{' '}
                   <span className="text-muted">
                     {productSize(item.product)} ×{line.quantity}
@@ -390,11 +415,13 @@ function OrderCard({ order, index, itemsById, comparisonId }: { order: PlatformO
                   {offer.packNote && <span className="block text-xs text-muted">as {offer.packNote} per unit</span>}
                 </span>
                 <span className="tabular font-semibold">{rupees(line.lineTotal)}</span>
+                </button>
               </li>
             );
           })}
         </ul>
 
+        <p className="mt-1 text-xs text-muted">{done === 0 ? 'Tick items as you add them in the app.' : `${done} of ${order.lines.length} added in ${p.shortName}`}</p>
         <details className="group mt-3 rounded-2xl bg-surface-2 px-3 py-2 text-sm">
           <summary className="flex cursor-pointer list-none items-center justify-between font-medium">
             <span>
@@ -463,6 +490,7 @@ function TotalCard({ plan, data }: { plan: Plan; data: ComparisonResponse }) {
           <p className="text-right text-sm text-muted">{plan.couponTotal > 0 ? `Includes ${rupees(plan.couponTotal)} in coupons` : 'Fees and discounts included'}</p>
         )}
       </div>
+      <BudgetNote total={plan.total} />
     </Card>
   );
 }

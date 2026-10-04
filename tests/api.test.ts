@@ -1,7 +1,7 @@
 import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { ApiResponse, ComparisonResponse, CreateCartResponse, PriceAlert, ProductPricesResponse, SavedCart, SavingsSummary } from '@savesmart/shared';
+import type { ApiResponse, ComparisonResponse, ComparisonSummary, CreateCartResponse, PriceAlert, ProductPricesResponse, SavedCart, SavingsSummary, UserPreferences } from '@savesmart/shared';
 import { createApp, createServices } from '../backend/src/app.js';
 import { loadConfig } from '../backend/src/config.js';
 import { MemoryStore } from '../backend/src/store/memoryStore.js';
@@ -150,5 +150,69 @@ describe('SaveSmart API: other endpoints', () => {
     for (let i = 0; i < 4; i++) codes.push((await fetch(url)).status);
     await new Promise<void>((r) => s.close(() => r()));
     expect(codes).toEqual([200, 200, 200, 429]);
+  });
+});
+
+describe('SaveSmart API: money-saving extras', () => {
+  async function compareItems(items: { productId: string; quantity: number }[]) {
+    return data(
+      await call<ComparisonResponse>('POST', '/cart/compare', {
+        items,
+        location: { city: 'Bengaluru', area: 'Whitefield', pincode: '560066' },
+        preference: 'balanced',
+      }),
+    );
+  }
+  async function compareMvp() {
+    const cart = data(await call<CreateCartResponse>('POST', '/cart', { text: MVP_LIST }));
+    return compareItems(cart.items.map((i) => ({ productId: i.product!.id, quantity: i.quantity })));
+  }
+
+  it('suggests smart swaps for equal amounts that lower the plan total', async () => {
+    const c = await compareMvp();
+    expect(c.swaps.length).toBeGreaterThan(0);
+    for (const s of c.swaps) {
+      expect(c.items.some((i) => i.itemId === s.itemId && i.product.id === s.from.id)).toBe(true);
+      expect(s.to.id).not.toBe(s.from.id);
+      expect(s.toBest.total).toBeLessThan(s.fromBest.total);
+      expect(s.estimatedSaving).toBeGreaterThanOrEqual(5);
+      // Applying the swap really lowers the recommended total by that much, fees included.
+      const swapped = await compareItems(
+        c.items.map((i) => (i.itemId === s.itemId ? { productId: s.to.id, quantity: s.toQuantity } : { productId: i.product.id, quantity: i.quantity })),
+      );
+      expect(swapped.result.recommended!.total).toBeCloseTo(c.result.recommended!.total - s.estimatedSaving, 2);
+      // Same total amount: e.g. 1L × 2 is only swapped for 500ml × 4, never a smaller pack.
+      const amount = (p: typeof s.from, q: number) => p.size.value * (p.packCount ?? 1) * q;
+      expect(amount(s.to, s.toQuantity)).toBeCloseTo(amount(s.from, s.fromQuantity), 5);
+      expect(s.to.size.unit).toBe(s.from.size.unit);
+    }
+    expect(new Set(c.swaps.map((s) => s.itemId)).size).toBe(c.swaps.length);
+    expect(c.swapAllSaving).toBeGreaterThan(0);
+  });
+
+  it('lists recent comparisons, newest first', async () => {
+    const c = await compareMvp();
+    const list = data(await call<ComparisonSummary[]>('GET', '/comparisons'));
+    expect(list[0].id).toBe(c.id);
+    expect(list[0].itemCount).toBe(6);
+    expect(list[0].total).toBe(c.result.recommended?.total ?? null);
+    expect(list[0].location.pincode).toBe('560066');
+    const unauth = await call('GET', '/comparisons', undefined, false);
+    expect(unauth.status).toBe(401);
+  });
+
+  it('tracks this month against a monthly budget', async () => {
+    const prefs = data(await call<UserPreferences>('GET', '/preferences'));
+    const saved = data(await call<UserPreferences>('PUT', '/preferences', { ...prefs, monthlyBudget: 6000 }));
+    expect(saved.monthlyBudget).toBe(6000);
+    const before = data(await call<SavingsSummary>('GET', '/savings'));
+    const c = await compareMvp();
+    data(await call('POST', `/comparisons/${c.id}/purchase`));
+    const after = data(await call<SavingsSummary>('GET', '/savings'));
+    expect(after.monthlyBudget).toBe(6000);
+    expect(after.thisMonthSpent).toBeCloseTo(before.thisMonthSpent + c.result.recommended!.total, 2);
+    expect(after.thisMonthSaved).toBeGreaterThanOrEqual(before.thisMonthSaved);
+    const bad = await call('PUT', '/preferences', { ...prefs, monthlyBudget: -5 });
+    expect(bad.status).toBe(400);
   });
 });

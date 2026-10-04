@@ -9,6 +9,9 @@ import { Compare } from './pages/Compare';
 import { Home } from './pages/Home';
 import { Results } from './pages/Results';
 import { AppStateProvider } from './state/AppState';
+import { registerPwa } from './lib/pwa';
+
+registerPwa();
 
 // Less-used screens load on demand to keep the first load fast.
 const Product = lazy(() => import('./pages/Product').then((m) => ({ default: m.Product })));

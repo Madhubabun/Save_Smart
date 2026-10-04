@@ -84,6 +84,8 @@ export interface Store {
   getComparison(userId: string, id: string): Promise<StoredComparison | null>;
   markPurchased(userId: string, id: string): Promise<StoredComparison | null>;
   listPurchasedComparisons(userId: string): Promise<StoredComparison[]>;
+  /** Most recent comparisons, newest first, without the full response. */
+  listRecentComparisons(userId: string, limit: number): Promise<StoredComparison[]>;
   addSampleSavings(userId: string, entries: StoredComparison[]): Promise<void>;
   clearSampleSavings(userId: string): Promise<void>;
 

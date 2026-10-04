@@ -8,6 +8,15 @@ SaveSmart compares a whole shopping cart across India's quick-commerce apps (Bli
 
 > **Prices are demo data.** No platform offers a public price API, and SaveSmart does not scrape or bypass any access controls. All prices come from the `DemoDataProvider` and are labelled **Demo prices** everywhere in the app. A licensed data provider can replace it without touching the rest of the system (see [Going live](#going-live)).
 
+## What you can do
+
+- **Compare a whole cart** by searching, pasting a list ("Milk 2, Bread 1, Eggs 12") or adding items manually, and get the cheapest single app, the cheapest split and a recommended plan for your saving style.
+- **Smart swaps:** SaveSmart suggests a different pack size of the same product, or the same kind of product from another brand (basmati for basmati, toned milk for toned milk), in exactly the same amount. A swap is only shown when it lowers the **whole plan total**, fees and order splits included. One tap applies it and re-runs the comparison.
+- **Shop the plan:** each order has an "Open" button to continue on that app, a checklist to tick items off as you add them (remembered on the device), and **Share plan** to send the list to someone else.
+- **Monthly budget:** set a grocery budget once. Results show how much of it a plan uses and warn you before a cart goes over; My Savings shows this month's spend against it.
+- **Pick up where you left off:** Home shows your unfinished cart, recent comparisons and any price alerts that were reached.
+- **Saved carts, price history and alerts** for products and whole baskets, a **savings dashboard**, dark mode, and an **installable app** (PWA) that opens instantly from the home screen.
+
 ## Quick start
 
 Requires Node 20+.
@@ -90,7 +99,7 @@ Parses sizes and units (kg/g/L/ml/pcs/dozen/multipacks), normalizes them to base
 
 `PlatformAdapter` is the only contract the app knows. `BlinkitAdapter`, `ZeptoAdapter`, `InstamartAdapter` and `BigBasketAdapter` each read a different raw record format (prices in rupees vs paise, different stock and size fields) from a `PlatformSource` and return the standardized listing: `productId, platform, productName, brand, variant, quantity, unit, price, mrp, discount, availability, deliveryFee, platformFee, handlingFee, productUrl, lastUpdated, location`.
 
-The `DemoDataProvider` covers **63 products**, 11 locations in 7 cities (with city-level price differences, area surge fees and platforms that don't deliver everywhere), out-of-stock and unlisted products, coupons, memberships and minimum order values.
+The `DemoDataProvider` covers **64 products**, 11 locations in 7 cities (with city-level price differences, area surge fees and platforms that don't deliver everywhere), out-of-stock and unlisted products, coupons, memberships and minimum order values.
 
 ### Going live
 
@@ -118,15 +127,16 @@ All responses use `{ ok: true, data }` or `{ ok: false, error: { code, message }
 | POST | `/api/session` | Start an anonymous session (returns a bearer token) |
 | POST | `/api/cart` | Turn a pasted list or entries into cart items |
 | POST | `/api/cart/compare` | Compare and optimize a cart |
-| GET | `/api/comparisons/:id` | Fetch a comparison |
+| GET | `/api/comparisons` | Recent comparisons for this user |
+| GET | `/api/comparisons/:id` | Fetch a comparison (includes smart swaps) |
 | POST | `/api/comparisons/:id/purchase` | Record that the user continued to a platform (feeds My Savings) |
 | GET | `/api/products/search?q=` | Search the catalog |
 | GET | `/api/products/:id/prices` | Current prices and 30-day history |
 | GET | `/api/platforms`, `/api/locations` | Reference data |
-| GET/PUT | `/api/preferences` | Location, saving preference, memberships, max orders |
+| GET/PUT | `/api/preferences` | Location, saving preference, memberships, max orders, monthly budget |
 | GET/POST/PUT/DELETE | `/api/saved-carts` | Recurring carts |
 | GET/POST/DELETE | `/api/price-alerts` | Product and basket alerts (evaluated on read) |
-| GET | `/api/savings` | Savings dashboard |
+| GET | `/api/savings` | Savings dashboard, this month's spend and budget |
 
 ## Security
 

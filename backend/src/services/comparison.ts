@@ -13,10 +13,12 @@ import {
   type PlatformId,
   type PlatformStatus,
   type ShoppingPreference,
+  type SmartSwap,
 } from '@savesmart/shared';
 import { matchProduct, type ListingMatch } from '@savesmart/product-matching';
 import { optimizeCart, type EngineItem, type EnginePlatform } from '@savesmart/optimization-engine';
 import { AdapterError, productTitle, type PlatformAdapter } from '@savesmart/platform-adapters';
+import { findSwaps, similarProducts } from './swaps.js';
 
 export interface PlatformQuote {
   platform: PlatformId;
@@ -87,6 +89,8 @@ export class ComparisonService {
   constructor(
     private readonly adapters: PlatformAdapter[],
     private readonly timeoutMs = 4000,
+    /** Catalog used to look for Smart Swaps. Empty disables them. */
+    private readonly catalog: CatalogProduct[] = [],
   ) {}
 
   get platformIds(): PlatformId[] {
@@ -134,18 +138,23 @@ export class ComparisonService {
 
   async compare(input: CompareInput): Promise<Omit<ComparisonResponse, 'id' | 'createdAt'>> {
     const products = input.items.map((i) => i.product);
-    const quotes = await this.quote(products, input.location, { simulateFailures: input.simulateFailures });
+    // Alternatives are priced in the same parallel pass (adapters cache per location), for Smart Swaps.
+    const alternatives = new Map<string, CatalogProduct>();
+    for (const p of products) for (const alt of similarProducts(p, this.catalog)) alternatives.set(alt.id, alt);
+    for (const p of products) alternatives.delete(p.id);
+    const quotes = await this.quote([...products, ...alternatives.values()], input.location, { simulateFailures: input.simulateFailures });
     const okQuotes = quotes.filter((q) => q.status === 'ok');
 
-    const items: ComparedItem[] = input.items.map(({ product, quantity }, idx) => {
+    const compared = (product: CatalogProduct, quantity: number, itemId: string): ComparedItem => {
       const offers = {} as Record<PlatformId, ItemOffer>;
       for (const q of quotes) {
         offers[q.platform] = q.status === 'ok' ? toOffer(q.platform, product, q.matches.get(product.id)) : { platform: q.platform, status: 'not_listed' };
       }
-      return { itemId: `${idx}:${product.id}`, product, quantity, offers };
-    });
+      return { itemId, product, quantity, offers };
+    };
+    const items: ComparedItem[] = input.items.map(({ product, quantity }, idx) => compared(product, quantity, `${idx}:${product.id}`));
 
-    const engineItems: EngineItem[] = items.map((it) => {
+    const toEngine = (it: ComparedItem): EngineItem => {
       const offers: EngineItem['offers'] = {};
       for (const q of okQuotes) {
         const o = it.offers[q.platform];
@@ -153,7 +162,7 @@ export class ComparisonService {
         offers[q.platform] = { unitPrice: o.price!, unitMrp: o.mrp!, available: o.status === 'available' };
       }
       return { id: it.itemId, label: `${[it.product.brand, it.product.name].filter(Boolean).join(' ')} ${formatSize(it.product.size, it.product.packCount)}`, quantity: it.quantity, offers };
-    });
+    };
 
     const enginePlatforms: EnginePlatform[] = okQuotes.map((q) => ({
       id: q.platform,
@@ -161,12 +170,39 @@ export class ComparisonService {
       isMember: input.memberships.includes(q.platform),
     }));
 
-    const result = optimizeCart({
-      items: engineItems,
-      platforms: enginePlatforms,
-      preference: input.preference,
-      maxOrders: input.maxOrders,
-    });
+    const optimize = (list: ComparedItem[]) =>
+      optimizeCart({
+        items: list.map(toEngine),
+        platforms: enginePlatforms,
+        preference: input.preference,
+        maxOrders: input.maxOrders,
+      });
+    const result = optimize(items);
+
+    // Smart swaps are judged on the whole plan (fees, minimum orders and splits included), not just the item price:
+    // a cheaper product that adds a delivery fee elsewhere is never suggested.
+    const planWith = (swaps: SmartSwap[]) => {
+      const swapped = items.map((it) => {
+        const s = swaps.find((x) => x.itemId === it.itemId);
+        return s ? compared(s.to, s.toQuantity, it.itemId) : it;
+      });
+      const r = optimize(swapped);
+      return r.unavailableItemIds.length <= result.unavailableItemIds.length ? (r.recommended?.total ?? null) : null;
+    };
+    const baseTotal = result.recommended?.total ?? null;
+    const swaps: SmartSwap[] = [];
+    if (baseTotal !== null) {
+      for (const candidate of findSwaps(items, this.catalog, quotes)) {
+        const total = planWith([candidate]);
+        if (total === null) continue;
+        const saving = round2(baseTotal - total);
+        if (saving < Math.max(5, baseTotal * 0.01)) continue;
+        swaps.push({ ...candidate, estimatedSaving: saving });
+      }
+      swaps.sort((a, b) => (a.kind === b.kind ? b.estimatedSaving - a.estimatedSaving : a.kind === 'pack_size' ? -1 : 1)).splice(6);
+    }
+    const allTotal = swaps.length > 1 ? planWith(swaps) : null;
+    const swapAllSaving = swaps.length === 0 ? 0 : swaps.length === 1 ? swaps[0].estimatedSaving : allTotal === null ? 0 : round2(baseTotal! - allTotal);
 
     const notices: Notice[] = [];
     const failed = quotes.filter((q) => q.status === 'error');
@@ -212,6 +248,8 @@ export class ComparisonService {
       platforms,
       result,
       notices,
+      swaps,
+      swapAllSaving,
     };
   }
 }

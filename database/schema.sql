@@ -156,8 +156,11 @@ CREATE TABLE IF NOT EXISTS user_preferences (
   pincode      text NOT NULL,
   memberships  text[] NOT NULL DEFAULT '{}',
   max_orders   smallint CHECK (max_orders BETWEEN 1 AND 10),
+  monthly_budget numeric(10,2) CHECK (monthly_budget > 0),
   updated_at   timestamptz NOT NULL DEFAULT now()
 );
+-- Upgrade path for databases created before the column existed.
+ALTER TABLE user_preferences ADD COLUMN IF NOT EXISTS monthly_budget numeric(10,2) CHECK (monthly_budget > 0);
 
 CREATE TABLE IF NOT EXISTS carts (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),

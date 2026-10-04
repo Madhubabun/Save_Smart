@@ -58,16 +58,18 @@ export class PgStore implements Store {
       location: { city: r.city, area: r.area, pincode: r.pincode },
       memberships: r.memberships as PlatformId[],
       maxOrders: r.max_orders ?? undefined,
+      monthlyBudget: r.monthly_budget === null ? undefined : Number(r.monthly_budget),
     };
   }
 
   async setPreferences(userId: string, p: UserPreferences): Promise<void> {
     await this.pool.query(
-      `INSERT INTO user_preferences (user_id, preference, city, area, pincode, memberships, max_orders, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, now())
+      `INSERT INTO user_preferences (user_id, preference, city, area, pincode, memberships, max_orders, monthly_budget, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())
        ON CONFLICT (user_id) DO UPDATE SET preference = EXCLUDED.preference, city = EXCLUDED.city, area = EXCLUDED.area,
-         pincode = EXCLUDED.pincode, memberships = EXCLUDED.memberships, max_orders = EXCLUDED.max_orders, updated_at = now()`,
-      [userId, p.preference, p.location.city, p.location.area, p.location.pincode, p.memberships, p.maxOrders ?? null],
+         pincode = EXCLUDED.pincode, memberships = EXCLUDED.memberships, max_orders = EXCLUDED.max_orders,
+         monthly_budget = EXCLUDED.monthly_budget, updated_at = now()`,
+      [userId, p.preference, p.location.city, p.location.area, p.location.pincode, p.memberships, p.maxOrders ?? null, p.monthlyBudget ?? null],
     );
   }
 
@@ -218,6 +220,16 @@ export class PgStore implements Store {
       `SELECT id, user_id, saved_cart_id, created_at, purchased_at, sample, recommended_total, savings, order_count, platforms, NULL AS result
        FROM comparison_results WHERE user_id = $1 AND purchased_at IS NOT NULL ORDER BY purchased_at DESC LIMIT 500`,
       [userId],
+    );
+    return rows.map((r) => this.comparisonRow(r));
+  }
+
+  async listRecentComparisons(userId: string, limit: number) {
+    const { rows } = await this.pool.query(
+      `SELECT id, user_id, saved_cart_id, created_at, purchased_at, sample, recommended_total, savings, order_count, platforms,
+              jsonb_build_object('location', result->'location', 'items', jsonb_path_query_array(result, '$.items[*].itemId')) AS result
+       FROM comparison_results WHERE user_id = $1 AND NOT sample ORDER BY created_at DESC LIMIT $2`,
+      [userId, limit],
     );
     return rows.map((r) => this.comparisonRow(r));
   }
