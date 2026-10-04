@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import type { SavedCartItem, UserPreferences } from '@savesmart/shared';
-import type { PriceSnapshot, Store, StoredAlert, StoredComparison, StoredSavedCart, User } from './types.js';
+import type { PlatformId, SavedCartItem, UserPreferences } from '@savesmart/shared';
+import type { FeeReport, PriceReport, PriceSnapshot, Store, StoredAlert, StoredComparison, StoredSavedCart, User } from './types.js';
 
 /** In-memory store for demo mode and tests. Data resets when the server restarts. */
 export class MemoryStore implements Store {
@@ -12,6 +12,8 @@ export class MemoryStore implements Store {
   private alerts = new Map<string, StoredAlert>();
   private comparisons = new Map<string, StoredComparison>();
   private snapshots = new Map<string, PriceSnapshot>();
+  private priceReportList: PriceReport[] = [];
+  private feeReportList: FeeReport[] = [];
 
   async createUser(tokenHash: string): Promise<User> {
     const user: User = { id: randomUUID(), createdAt: new Date().toISOString(), isAnonymous: true };
@@ -134,6 +136,27 @@ export class MemoryStore implements Store {
 
   async priceSnapshots(productId: string, pincode: string, sinceDate: string) {
     return [...this.snapshots.values()].filter((s) => s.productId === productId && s.pincode === pincode && s.date >= sinceDate);
+  }
+
+  async addPriceReport(r: PriceReport) {
+    this.priceReportList.unshift(r);
+    this.priceReportList.length = Math.min(this.priceReportList.length, 50_000);
+  }
+
+  async priceReports(productIds: string[] | null, platform: PlatformId, city: string, sinceIso: string) {
+    const ids = productIds && new Set(productIds);
+    const c = city.toLowerCase();
+    return this.priceReportList.filter((r) => (!ids || ids.has(r.productId)) && r.platform === platform && r.city.toLowerCase() === c && r.reportedAt >= sinceIso);
+  }
+
+  async addFeeReport(r: FeeReport) {
+    this.feeReportList.unshift(r);
+    this.feeReportList.length = Math.min(this.feeReportList.length, 10_000);
+  }
+
+  async feeReports(platform: PlatformId, city: string, sinceIso: string) {
+    const c = city.toLowerCase();
+    return this.feeReportList.filter((r) => r.platform === platform && r.city.toLowerCase() === c && r.reportedAt >= sinceIso);
   }
 
   async close() {}

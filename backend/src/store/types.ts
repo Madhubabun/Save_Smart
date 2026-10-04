@@ -58,6 +58,35 @@ export interface PriceSnapshot {
   date: string;
 }
 
+/** A price someone saw in a platform's app and shared with SaveSmart's community. */
+export interface PriceReport {
+  productId: string;
+  platform: PlatformId;
+  userId: string;
+  city: string;
+  pincode: string;
+  price: number;
+  mrp: number | null;
+  available: boolean;
+  reportedAt: string;
+}
+
+/** The fees someone saw on a platform's bill, shared with the community. */
+export interface FeeReport {
+  platform: PlatformId;
+  userId: string;
+  city: string;
+  pincode: string;
+  deliveryFee: number;
+  freeDeliveryAbove: number | null;
+  handlingFee: number;
+  platformFee: number;
+  smallCartFee: number;
+  smallCartBelow: number;
+  minOrderValue: number;
+  reportedAt: string;
+}
+
 /**
  * Persistence boundary. MemoryStore runs the demo without a database;
  * PgStore persists to PostgreSQL (see database/schema.sql).
@@ -91,6 +120,12 @@ export interface Store {
 
   recordPrices(snapshots: PriceSnapshot[]): Promise<void>;
   priceSnapshots(productId: string, pincode: string, sinceDate: string): Promise<PriceSnapshot[]>;
+
+  addPriceReport(r: PriceReport): Promise<void>;
+  /** Reports on one platform in a city since a time (optionally only these products), newest first. */
+  priceReports(productIds: string[] | null, platform: PlatformId, city: string, sinceIso: string): Promise<PriceReport[]>;
+  addFeeReport(r: FeeReport): Promise<void>;
+  feeReports(platform: PlatformId, city: string, sinceIso: string): Promise<FeeReport[]>;
 
   close(): Promise<void>;
 }

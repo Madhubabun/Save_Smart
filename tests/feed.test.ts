@@ -54,7 +54,8 @@ describe('Licensed price feed', () => {
     expect(() => loadConfig({ PRICE_SOURCE: 'feed' })).toThrow(/PRICE_FEED_URL/);
     expect(() => loadConfig({ PRICE_FEED_URL: 'http://feed.example.com', PRICE_FEED_KEY: 'k' })).toThrow(/https/);
     expect(loadConfig({ PRICE_FEED_URL: 'https://feed.example.com', PRICE_FEED_KEY: 'k' }).priceSource).toBe('feed');
-    expect(loadConfig({}).priceSource).toBe('demo');
+    expect(loadConfig({}).priceSource).toBe('community');
+    expect(loadConfig({ PRICE_SOURCE: 'demo' }).priceSource).toBe('demo');
   });
 
   it('compares live prices from the feed, with fees, and labels them live', async () => {
@@ -79,7 +80,7 @@ describe('Licensed price feed', () => {
     expect(seen.every((x) => x.auth === 'Bearer test-key')).toBe(true);
   });
 
-  it('keeps comparing when the feed fails for a platform', async () => {
+  it('falls back to community prices when the feed fails', async () => {
     const config = { ...loadConfig({ PRICE_FEED_URL: base, PRICE_FEED_KEY: 'wrong' }), serveFrontend: false };
     const s = createServices(config, new MemoryStore());
     const r = await s.comparison.compare({
@@ -88,8 +89,10 @@ describe('Licensed price feed', () => {
       preference: 'balanced',
       memberships: [],
     });
-    expect(r.platforms.every((p) => p.status === 'error')).toBe(true);
+    // The feed rejects the key; with no community reports yet there is simply no price, never a made-up one.
+    expect(r.platforms.every((p) => p.status === 'ok')).toBe(true);
+    expect(Object.values(r.items[0].offers).every((o) => o.status === 'not_listed')).toBe(true);
     expect(r.result.recommended).toBeNull();
-    expect(r.notices[0].title).toMatch(/couldn't be retrieved/);
+    expect(r.result.unavailableItemIds).toHaveLength(1);
   });
 });

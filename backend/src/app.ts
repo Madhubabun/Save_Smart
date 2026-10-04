@@ -2,7 +2,9 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
-import { DEMO_CATALOG, DemoDataProvider, createDemoAdapters, createFeedAdapters } from '@savesmart/platform-adapters';
+import { PLATFORM_IDS } from '@savesmart/shared';
+import { DEMO_CATALOG, DemoDataProvider, FeedAdapter, createDemoAdapters, type PlatformAdapter } from '@savesmart/platform-adapters';
+import { CommunityAdapter, LayeredAdapter } from './services/community.js';
 import type { Config } from './config.js';
 import { authenticate, cors, errorHandler, rateLimit, requestLogger, securityHeaders } from './http/middleware.js';
 import { fail } from './http/respond.js';
@@ -14,7 +16,11 @@ import type { Store } from './store/types.js';
 
 export function createServices(config: Config, store: Store): Services {
   const demo = config.priceSource === 'demo' ? new DemoDataProvider() : null;
-  const adapters = demo ? createDemoAdapters(demo, { latencyMs: config.demoLatencyMs }) : createFeedAdapters(config.priceFeed!);
+  // Real prices: the licensed feed when configured, with community reports filling its gaps.
+  const community = PLATFORM_IDS.map((id) => new CommunityAdapter(id, store, DEMO_CATALOG));
+  const adapters: PlatformAdapter[] = demo
+    ? createDemoAdapters(demo, { latencyMs: config.demoLatencyMs })
+    : community.map((c) => new LayeredAdapter(config.priceFeed ? new FeedAdapter(c.id, config.priceFeed) : null, c));
   const comparison = new ComparisonService(adapters, config.platformTimeoutMs, DEMO_CATALOG);
   return {
     store,
@@ -22,6 +28,7 @@ export function createServices(config: Config, store: Store): Services {
     comparison,
     prices: new PriceService(comparison, store, demo),
     priceSource: config.priceSource,
+    community: demo ? [] : community,
   };
 }
 

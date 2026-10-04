@@ -87,10 +87,12 @@ export interface PlatformListing {
   location: Location;
   /** Where the number came from. Demo prices must always be labelled as such. */
   dataSource: DataSource;
+  /** Community prices: how many people's reports the price is based on. */
+  reports?: number;
 }
 
-/** demo: generated sample data · live: a licensed price feed · user: prices the user checked in each app themselves. */
-export type DataSource = 'demo' | 'live' | 'user';
+/** demo: generated sample data · live: a licensed price feed · community: prices SaveSmart users saw in the apps · user: checked on this device. */
+export type DataSource = 'demo' | 'live' | 'community' | 'user';
 
 export interface Coupon {
   code: string;
@@ -130,6 +132,9 @@ export interface FeeSchedule {
   minOrderValue: number;
   coupons: Coupon[];
   membership?: Membership;
+  /** Where the fees came from; "unknown" means nobody has reported them yet, so totals leave them out. */
+  feesSource?: 'feed' | 'community' | 'demo' | 'unknown';
+  feesObservedAt?: string;
 }
 
 export interface PlatformInfo {

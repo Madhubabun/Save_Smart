@@ -1,14 +1,17 @@
 /**
- * Seeds PostgreSQL with platforms, locations, fee schedules, the canonical
- * catalog, each platform's listings (matched to the catalog by the product
- * matcher), current DEMO prices and 30 days of DEMO price history.
+ * Seeds PostgreSQL with platforms, locations and the canonical catalog.
+ * With --demo it also adds each platform's DEMO listings, prices and 30 days
+ * of DEMO history (development only; never used for real prices).
  *
  *   DATABASE_URL=postgres://... npm run db:seed
+ *   DATABASE_URL=postgres://... npm run db:seed -- --demo
  */
 import pg from 'pg';
-import { PLATFORMS, PLATFORM_IDS } from '@savesmart/shared';
 import { matchProduct } from '@savesmart/product-matching';
 import { DEMO_CATALOG, DEMO_LOCATIONS, DemoDataProvider, createDemoAdapters, productTitle } from '@savesmart/platform-adapters';
+import { seedCatalog } from '../store/migrate.js';
+
+const withDemoPrices = process.argv.includes('--demo');
 
 const url = process.env.DATABASE_URL;
 if (!url) {
@@ -24,41 +27,16 @@ const adapters = createDemoAdapters(provider);
 try {
   await client.query('BEGIN');
 
-  for (const id of PLATFORM_IDS) {
-    const p = PLATFORMS[id];
-    await client.query(
-      `INSERT INTO platforms (id, name, website_url) VALUES ($1, $2, $3)
-       ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, website_url = EXCLUDED.website_url`,
-      [id, p.name, p.websiteUrl],
-    );
+  const locationIds = await seedCatalog(client);
+  if (!withDemoPrices) {
+    await client.query('COMMIT');
+    console.log(`Seeded ${DEMO_CATALOG.length} products and ${DEMO_LOCATIONS.length} locations. No prices: they come from the price feed and community reports.`);
+    process.exit(0);
   }
-
-  const locationIds = new Map<string, number>();
   for (const l of DEMO_LOCATIONS) {
-    const { rows } = await client.query(
-      `INSERT INTO locations (city, area, pincode) VALUES ($1, $2, $3)
-       ON CONFLICT (pincode, area) DO UPDATE SET city = EXCLUDED.city RETURNING id`,
-      [l.city, l.area, l.pincode],
-    );
-    locationIds.set(l.pincode, rows[0].id);
     for (const platform of l.serviceable) {
-      await client.query('INSERT INTO platform_locations VALUES ($1, $2) ON CONFLICT DO NOTHING', [platform, rows[0].id]);
+      await client.query('INSERT INTO platform_locations VALUES ($1, $2) ON CONFLICT DO NOTHING', [platform, locationIds.get(l.pincode)]);
     }
-  }
-
-  for (const product of DEMO_CATALOG) {
-    const familyId = `${product.brand} ${product.name}`.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    await client.query(
-      `INSERT INTO products (id, brand, name, category, popularity) VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (id) DO UPDATE SET popularity = GREATEST(products.popularity, EXCLUDED.popularity)`,
-      [familyId, product.brand, product.name, product.category, product.popularity],
-    );
-    await client.query(
-      `INSERT INTO product_variants (id, product_id, variant, size_value, size_unit, pack_count, mrp, emoji, keywords)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-       ON CONFLICT (id) DO UPDATE SET mrp = EXCLUDED.mrp, keywords = EXCLUDED.keywords`,
-      [product.id, familyId, product.variant, product.size.value, product.size.unit, product.packCount, product.mrp, product.emoji, product.keywords],
-    );
   }
 
   let listingCount = 0;

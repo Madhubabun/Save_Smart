@@ -12,10 +12,12 @@ export interface Config {
   serveFrontend: boolean;
   isProduction: boolean;
   /**
-   * Where prices come from. "feed": a licensed price feed (PRICE_FEED_URL + PRICE_FEED_KEY).
+   * Where prices come from.
+   * "community": prices SaveSmart users saw in the apps and shared (the default).
+   * "feed": a licensed price feed (PRICE_FEED_URL + PRICE_FEED_KEY), with community prices filling its gaps.
    * "demo": generated sample data for development and tests, always labelled in the app.
    */
-  priceSource: 'feed' | 'demo';
+  priceSource: 'feed' | 'community' | 'demo';
   priceFeed: { baseUrl: string; apiKey: string } | null;
 }
 
@@ -48,9 +50,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
 function priceSource(env: NodeJS.ProcessEnv): Pick<Config, 'priceSource' | 'priceFeed'> {
   const url = env.PRICE_FEED_URL?.trim();
   const key = env.PRICE_FEED_KEY?.trim();
-  const source = env.PRICE_SOURCE?.trim() || (url ? 'feed' : 'demo');
-  if (source === 'demo') return { priceSource: 'demo', priceFeed: null };
-  if (source !== 'feed') throw new Error('PRICE_SOURCE must be "feed" or "demo".');
+  const source = env.PRICE_SOURCE?.trim() || (url ? 'feed' : 'community');
+  if (source === 'demo' || source === 'community') return { priceSource: source, priceFeed: null };
+  if (source !== 'feed') throw new Error('PRICE_SOURCE must be "community", "feed" or "demo".');
   if (!url || !key) throw new Error('PRICE_SOURCE=feed needs PRICE_FEED_URL and PRICE_FEED_KEY.');
   if (!/^https:\/\//.test(url) && !/^http:\/\/(localhost|127\.0\.0\.1)/.test(url)) throw new Error('PRICE_FEED_URL must use https.');
   return { priceSource: 'feed', priceFeed: { baseUrl: url, apiKey: key } };

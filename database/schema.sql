@@ -238,3 +238,39 @@ CREATE TABLE IF NOT EXISTS sponsored_placements (
   starts_at   timestamptz NOT NULL,
   ends_at     timestamptz NOT NULL
 );
+
+-- ---------------------------------------------------------------------------
+-- Community prices: what users saw in each app, shared by city/pincode.
+-- Used to fill gaps the licensed feed doesn't cover (or instead of it).
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS community_price_reports (
+  id          bigserial PRIMARY KEY,
+  variant_id  text NOT NULL REFERENCES product_variants(id) ON DELETE CASCADE,
+  platform_id text NOT NULL REFERENCES platforms(id) ON DELETE CASCADE,
+  user_id     uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  city        text NOT NULL,
+  pincode     text NOT NULL DEFAULT '',
+  price       numeric(10,2) NOT NULL CHECK (price > 0),
+  mrp         numeric(10,2) CHECK (mrp > 0),
+  available   boolean NOT NULL DEFAULT true,
+  reported_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS community_price_reports_lookup_idx
+  ON community_price_reports (platform_id, lower(city), variant_id, reported_at DESC);
+
+CREATE TABLE IF NOT EXISTS community_fee_reports (
+  id                  bigserial PRIMARY KEY,
+  platform_id         text NOT NULL REFERENCES platforms(id) ON DELETE CASCADE,
+  user_id             uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  city                text NOT NULL,
+  pincode             text NOT NULL DEFAULT '',
+  delivery_fee        numeric(10,2) NOT NULL DEFAULT 0,
+  free_delivery_above numeric(10,2),
+  handling_fee        numeric(10,2) NOT NULL DEFAULT 0,
+  platform_fee        numeric(10,2) NOT NULL DEFAULT 0,
+  small_cart_fee      numeric(10,2) NOT NULL DEFAULT 0,
+  small_cart_below    numeric(10,2) NOT NULL DEFAULT 0,
+  min_order_value     numeric(10,2) NOT NULL DEFAULT 0,
+  reported_at         timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS community_fee_reports_lookup_idx ON community_fee_reports (platform_id, lower(city), reported_at DESC);
